@@ -1,4 +1,4 @@
-import postgres from 'postgres';
+import { Client } from 'pg';
 import path from 'node:path';
 import fs from 'node:fs';
 
@@ -25,13 +25,14 @@ export async function runMigrations(databaseUrl: string): Promise<void> {
     return;
   }
 
-  const client = postgres(databaseUrl, { max: 1, prepare: false });
+  const client = new Client({ connectionString: databaseUrl });
+  await client.connect();
   try {
     for (const file of sqlFiles) {
       const sqlText = fs.readFileSync(path.join(migrationsFolder, file), 'utf8');
       console.log(`  ▸ aplicando ${file} (${sqlText.length} bytes)`);
-      // .simple() permite múltiplos statements + DO $$ blocks num único arquivo
-      await client.unsafe(sqlText).simple();
+      // pg aceita multi-statement query nativamente, incluindo DO $$ blocks
+      await client.query(sqlText);
       console.log(`    ✓ ${file} aplicado`);
     }
   } finally {
