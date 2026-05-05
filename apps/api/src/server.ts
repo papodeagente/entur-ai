@@ -10,8 +10,33 @@ import { toNodeHandler } from 'better-auth/node';
 import { auth } from './auth';
 import { appRouter } from './router';
 import { createContext } from './trpc';
+import { runMigrations } from './migrate';
 
 async function main() {
+  console.log('▸ ENTUR AI api · iniciando…');
+  console.log(`  NODE_ENV=${env.NODE_ENV}`);
+  console.log(`  PORT=${env.PORT}`);
+  console.log(`  APP_URL=${env.APP_URL}`);
+
+  if (env.NODE_ENV === 'production') {
+    console.log('▸ Aplicando migrations…');
+    let lastErr: unknown = null;
+    for (let i = 1; i <= 5; i++) {
+      try {
+        await runMigrations(env.DATABASE_URL);
+        lastErr = null;
+        break;
+      } catch (err) {
+        lastErr = err;
+        console.warn(`  tentativa ${i} falhou: ${err instanceof Error ? err.message : err}`);
+        await new Promise((r) => setTimeout(r, 5000));
+      }
+    }
+    if (lastErr) {
+      console.error('  ⚠ migrations falharam após 5 tentativas; iniciando assim mesmo');
+    }
+  }
+
   const app = express();
   const server = createServer(app);
 
@@ -50,9 +75,13 @@ async function main() {
 
   // Serve web static build em produção
   if (env.NODE_ENV === 'production') {
-    const webDist = path.resolve(process.cwd(), '../web/dist');
-    const fallbackDist = path.resolve(process.cwd(), 'public');
-    const distPath = fs.existsSync(webDist) ? webDist : fallbackDist;
+    const candidates = [
+      path.resolve(__dirname, '../web-dist'),
+      path.resolve(__dirname, './web-dist'),
+      path.resolve(process.cwd(), 'web-dist'),
+      path.resolve(process.cwd(), '../web/dist'),
+    ];
+    const distPath = candidates.find((p) => fs.existsSync(p)) || candidates[0];
 
     if (fs.existsSync(distPath)) {
       console.log(`✓ servindo web estático de: ${distPath}`);
@@ -80,10 +109,8 @@ async function main() {
     }
   }
 
-  server.listen(env.PORT, () => {
-    console.log(`✓ ENTUR AI api listening on :${env.PORT}`);
-    console.log(`  app url: ${env.APP_URL}`);
-    console.log(`  env: ${env.NODE_ENV}`);
+  server.listen(env.PORT, '0.0.0.0', () => {
+    console.log(`✓ ENTUR AI rodando em :${env.PORT}`);
   });
 }
 

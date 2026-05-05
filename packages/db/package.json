@@ -2,7 +2,6 @@
   "name": "@entur-ai/db",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
@@ -12,6 +11,8 @@
   "scripts": {
     "generate": "drizzle-kit generate",
     "migrate": "tsx src/migrate.ts",
+    "migrate:compiled": "node dist/migrate.js",
+    "build": "tsc -p tsconfig.json && cp -r drizzle dist/drizzle",
     "studio": "drizzle-kit studio",
     "push": "drizzle-kit push"
   },

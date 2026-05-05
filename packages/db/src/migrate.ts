@@ -1,7 +1,8 @@
-import 'dotenv/config';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
+import path from 'node:path';
+import fs from 'node:fs';
 
 async function main() {
   const url = process.env.DATABASE_URL;
@@ -12,10 +13,23 @@ async function main() {
 
   console.log('🔌 Conectando ao banco...');
   await client`CREATE EXTENSION IF NOT EXISTS vector`;
-  console.log('✓ pgvector habilitado');
+  await client`CREATE EXTENSION IF NOT EXISTS pgcrypto`;
+  console.log('✓ extensões habilitadas');
+
+  // Procura a pasta drizzle (dev: ../drizzle ; runner compilado: ./drizzle)
+  const candidates = [
+    path.resolve(process.cwd(), 'drizzle'),
+    path.resolve(__dirname, '../drizzle'),
+    path.resolve(__dirname, './drizzle'),
+  ];
+  const migrationsFolder = candidates.find((p) => fs.existsSync(p));
+  if (!migrationsFolder) {
+    throw new Error(`Pasta drizzle/ não encontrada. Tentativas: ${candidates.join(', ')}`);
+  }
+  console.log(`📁 migrations em: ${migrationsFolder}`);
 
   console.log('📝 Aplicando migrations...');
-  await migrate(db, { migrationsFolder: './drizzle' });
+  await migrate(db, { migrationsFolder });
   console.log('✓ Migrations aplicadas');
 
   await client.end();
