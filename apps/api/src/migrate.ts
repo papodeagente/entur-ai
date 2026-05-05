@@ -30,7 +30,8 @@ export async function runMigrations(databaseUrl: string): Promise<void> {
     for (const file of sqlFiles) {
       const sqlText = fs.readFileSync(path.join(migrationsFolder, file), 'utf8');
       console.log(`  ▸ aplicando ${file} (${sqlText.length} bytes)`);
-      await client.unsafe(sqlText);
+      // .simple() permite múltiplos statements + DO $$ blocks num único arquivo
+      await client.unsafe(sqlText).simple();
       console.log(`    ✓ ${file} aplicado`);
     }
   } finally {
