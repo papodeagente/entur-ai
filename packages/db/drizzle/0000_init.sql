@@ -84,8 +84,10 @@ CREATE TABLE IF NOT EXISTS "verification" (
   "identifier" VARCHAR(255) NOT NULL,
   "value" VARCHAR(255) NOT NULL,
   "expires_at" TIMESTAMPTZ NOT NULL,
-  "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE "verification" ADD COLUMN IF NOT EXISTS "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW();
 CREATE INDEX IF NOT EXISTS "idx_verification_identifier" ON "verification"("identifier");
 
 -- ===== Conversas =====
@@ -251,7 +253,7 @@ DO $$
 DECLARE t text;
 BEGIN
   FOR t IN
-    SELECT unnest(ARRAY['user','session','account','conversation','user_memory','prompt_template','kb_document','tenant_setting'])
+    SELECT unnest(ARRAY['user','session','account','verification','conversation','user_memory','prompt_template','kb_document','tenant_setting'])
   LOOP
     EXECUTE format('DROP TRIGGER IF EXISTS set_%I_updated_at ON %I', t, t);
     EXECUTE format('CREATE TRIGGER set_%I_updated_at BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at()', t, t);

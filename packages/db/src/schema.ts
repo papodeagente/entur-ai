@@ -165,6 +165,9 @@ export const verification = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
       .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' })
+      .notNull()
+      .defaultNow(),
   },
   (t) => ({
     identifierIdx: index('idx_verification_identifier').on(t.identifier),
