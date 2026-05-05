@@ -249,13 +249,29 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DO $$
-DECLARE t text;
-BEGIN
-  FOR t IN
-    SELECT unnest(ARRAY['user','session','account','verification','conversation','user_memory','prompt_template','kb_document','tenant_setting'])
-  LOOP
-    EXECUTE format('DROP TRIGGER IF EXISTS set_%I_updated_at ON %I', t, t);
-    EXECUTE format('CREATE TRIGGER set_%I_updated_at BEFORE UPDATE ON %I FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at()', t, t);
-  END LOOP;
-END $$;
+DROP TRIGGER IF EXISTS set_user_updated_at ON "user";
+CREATE TRIGGER set_user_updated_at BEFORE UPDATE ON "user" FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+
+DROP TRIGGER IF EXISTS set_session_updated_at ON "session";
+CREATE TRIGGER set_session_updated_at BEFORE UPDATE ON "session" FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+
+DROP TRIGGER IF EXISTS set_account_updated_at ON "account";
+CREATE TRIGGER set_account_updated_at BEFORE UPDATE ON "account" FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+
+DROP TRIGGER IF EXISTS set_verification_updated_at ON "verification";
+CREATE TRIGGER set_verification_updated_at BEFORE UPDATE ON "verification" FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+
+DROP TRIGGER IF EXISTS set_conversation_updated_at ON "conversation";
+CREATE TRIGGER set_conversation_updated_at BEFORE UPDATE ON "conversation" FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+
+DROP TRIGGER IF EXISTS set_user_memory_updated_at ON "user_memory";
+CREATE TRIGGER set_user_memory_updated_at BEFORE UPDATE ON "user_memory" FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+
+DROP TRIGGER IF EXISTS set_prompt_template_updated_at ON "prompt_template";
+CREATE TRIGGER set_prompt_template_updated_at BEFORE UPDATE ON "prompt_template" FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+
+DROP TRIGGER IF EXISTS set_kb_document_updated_at ON "kb_document";
+CREATE TRIGGER set_kb_document_updated_at BEFORE UPDATE ON "kb_document" FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+
+DROP TRIGGER IF EXISTS set_tenant_setting_updated_at ON "tenant_setting";
+CREATE TRIGGER set_tenant_setting_updated_at BEFORE UPDATE ON "tenant_setting" FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
