@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import crypto from 'node:crypto';
 import { db } from '@entur-ai/db';
 import * as schema from '@entur-ai/db/schema';
 import { env } from './env';
@@ -19,6 +20,11 @@ export const auth = betterAuth({
   baseURL: env.APP_URL,
   secret: env.APP_SECRET,
   trustedOrigins: [env.APP_URL],
+  advanced: {
+    database: {
+      generateId: () => crypto.randomUUID(),
+    },
+  },
   socialProviders: googleConfigured
     ? {
         google: {
