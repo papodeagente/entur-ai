@@ -1,0 +1,18 @@
+node_modules/
+.turbo/
+dist/
+build/
+.next/
+.env
+.env.local
+.env*.local
+*.log
+.DS_Store
+.vscode/
+.idea/
+
+# Build artifacts
+*.tsbuildinfo
+
+# Drizzle
+drizzle/.snapshots/
