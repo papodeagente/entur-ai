@@ -3,6 +3,8 @@ import { conversationsRouter } from './routers/conversations';
 import { settingsRouter } from './routers/settings';
 import { memoriesRouter } from './routers/memories';
 import { kbRouter } from './routers/kb';
+import { promptsRouter } from './routers/prompts';
+import { profileRouter } from './routers/profile';
 import { MODELS } from '@entur-ai/ai';
 
 export const appRouter = router({
@@ -22,6 +24,8 @@ export const appRouter = router({
   settings: settingsRouter,
   memories: memoriesRouter,
   kb: kbRouter,
+  prompts: promptsRouter,
+  profile: profileRouter,
 });
 
 export type AppRouter = typeof appRouter;

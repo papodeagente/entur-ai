@@ -91,6 +91,9 @@ export const user = pgTable(
     role: userRoleEnum('role').notNull().default('member'),
     department: departmentEnum('department').notNull().default('outros'),
     jobTitle: varchar('job_title', { length: 120 }),
+    onboarded: boolean('onboarded').notNull().default(false),
+    writingStyle: text('writing_style'),
+    interests: jsonb('interests'),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' })
       .notNull()
       .defaultNow(),

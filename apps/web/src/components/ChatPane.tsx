@@ -1,12 +1,23 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import {
+  forwardRef,
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+  useImperativeHandle,
+} from 'react';
 import { trpc } from '@/lib/trpc';
 import { getSocket } from '@/lib/socket';
 import { MessageBubble } from './MessageBubble';
-import { Composer, type PendingAttachment, type ToolFlags } from './Composer';
+import { Composer, type ComposerHandle, type PendingAttachment, type ToolFlags } from './Composer';
 import { ModelSelector } from './ModelSelector';
 import { Welcome } from './Welcome';
 import { getModel, isImageModel } from '@entur-ai/ai';
 import { toast } from 'sonner';
+
+export interface ChatPaneHandle {
+  insertText: (text: string) => void;
+}
 
 interface Message {
   id: string;
@@ -49,17 +60,27 @@ interface Props {
   onActiveChanged: (id: string) => void;
   onMissingKey: () => void;
   userName: string;
+  onOpenPalette: () => void;
 }
 
-export function ChatPane({
-  activeId,
-  modelId,
-  setModelId,
-  onCreateConversation,
-  onActiveChanged,
-  onMissingKey,
-  userName,
-}: Props) {
+export const ChatPane = forwardRef<ChatPaneHandle, Props>(function ChatPane(
+  {
+    activeId,
+    modelId,
+    setModelId,
+    onCreateConversation,
+    onActiveChanged,
+    onMissingKey,
+    userName,
+    onOpenPalette,
+  },
+  forwardedRef
+) {
+  const composerRef = useRef<ComposerHandle | null>(null);
+
+  useImperativeHandle(forwardedRef, () => ({
+    insertText: (text: string) => composerRef.current?.insertText(text),
+  }));
   const utils = trpc.useUtils();
   const { data: conv } = trpc.conversations.get.useQuery(
     { id: activeId! },
@@ -244,12 +265,20 @@ export function ChatPane({
 
   return (
     <main className="flex-1 flex flex-col min-w-0">
-      <header className="h-14 flex items-center justify-between px-6 border-b border-border-subtle">
-        <div className="flex items-center gap-3 min-w-0">
+      <header className="h-14 flex items-center justify-between px-6 border-b border-border-subtle gap-3">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           <h1 className="text-sm font-medium text-text-primary tracking-tightish truncate">
             {conv?.title || 'Nova conversa'}
           </h1>
         </div>
+        <button
+          onClick={onOpenPalette}
+          className="hidden md:flex items-center gap-2 text-xs text-text-tertiary hover:text-text-secondary border border-border-subtle bg-bg-elevated/40 hover:bg-bg-elevated rounded-md px-3 py-1.5 transition-colors"
+          title="Abrir paleta de comandos"
+        >
+          <span>📋 Prompts</span>
+          <kbd className="font-mono text-[10px]">⌘K</kbd>
+        </button>
         <ModelSelector value={modelId} onChange={setModelId} />
       </header>
 
@@ -315,9 +344,9 @@ export function ChatPane({
 
       <div className="border-t border-border-subtle bg-bg-base">
         <div className="max-w-3xl mx-auto px-6 py-4">
-          <Composer onSend={send} disabled={isStreaming} modelId={modelId} />
+          <Composer ref={composerRef} onSend={send} disabled={isStreaming} modelId={modelId} />
         </div>
       </div>
     </main>
   );
-}
+});

@@ -254,7 +254,34 @@ export function attachSocket(httpServer: HttpServer, _appUrl: string): SocketSer
           .orderBy(desc(schema.userMemory.updatedAt))
           .limit(50);
 
+        const profileRows = await db
+          .select({
+            name: schema.user.name,
+            department: schema.user.department,
+            jobTitle: schema.user.jobTitle,
+            writingStyle: schema.user.writingStyle,
+            interests: schema.user.interests,
+          })
+          .from(schema.user)
+          .where(eq(schema.user.id, socket.user.id))
+          .limit(1);
+        const profile = profileRows[0];
+
         const sysParts: string[] = [BASE_SYSTEM_PROMPT];
+        if (profile) {
+          const profileBits: string[] = [];
+          if (profile.name) profileBits.push(`Nome: ${profile.name}`);
+          if (profile.department && profile.department !== 'outros')
+            profileBits.push(`Departamento: ${profile.department}`);
+          if (profile.jobTitle) profileBits.push(`Cargo: ${profile.jobTitle}`);
+          if (Array.isArray(profile.interests) && profile.interests.length > 0)
+            profileBits.push(`Áreas de interesse: ${(profile.interests as any[]).join(', ')}`);
+          if (profile.writingStyle)
+            profileBits.push(`Estilo de escrita preferido: ${profile.writingStyle}`);
+          if (profileBits.length > 0) {
+            sysParts.push('## Sobre o usuário', profileBits.join('\n'));
+          }
+        }
         if (memoryRows.length > 0) {
           sysParts.push(
             '## Memórias sobre o usuário (use para personalizar, não force referências)',

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { cn } from '@/lib/cn';
 import { modelHas, isImageModel } from '@entur-ai/ai';
 
@@ -13,6 +13,11 @@ export interface ToolFlags {
   webSearch: boolean;
   codeExec: boolean;
   thinking: boolean;
+}
+
+export interface ComposerHandle {
+  insertText: (text: string) => void;
+  focus: () => void;
 }
 
 interface Props {
@@ -33,7 +38,10 @@ async function fileToAttachment(file: File): Promise<PendingAttachment> {
   return { kind, mimeType: file.type || 'application/octet-stream', data: b64, name: file.name };
 }
 
-export function Composer({ onSend, disabled, modelId }: Props) {
+export const Composer = forwardRef<ComposerHandle, Props>(function Composer(
+  { onSend, disabled, modelId },
+  forwardedRef
+) {
   const [value, setValue] = useState('');
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [tools, setTools] = useState<ToolFlags>({
@@ -43,6 +51,14 @@ export function Composer({ onSend, disabled, modelId }: Props) {
   });
   const ref = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useImperativeHandle(forwardedRef, () => ({
+    insertText: (text: string) => {
+      setValue((v) => (v ? v + '\n\n' + text : text));
+      setTimeout(() => ref.current?.focus(), 0);
+    },
+    focus: () => ref.current?.focus(),
+  }));
 
   const isImage = isImageModel(modelId);
   const supportsAttach =
@@ -204,7 +220,7 @@ export function Composer({ onSend, disabled, modelId }: Props) {
       </div>
     </div>
   );
-}
+});
 
 function ToolToggle({
   label,

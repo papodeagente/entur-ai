@@ -1,9 +1,12 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { signOut } from '@/lib/auth-client';
 import { cn } from '@/lib/cn';
 import { Sidebar } from './Sidebar';
-import { ChatPane } from './ChatPane';
+import { ChatPane, type ChatPaneHandle } from './ChatPane';
 import { SettingsDialog } from './SettingsDialog';
+import { CommandPalette } from './CommandPalette';
+import { PromptVariablesDialog } from './PromptVariablesDialog';
+import { OnboardingDialog } from './OnboardingDialog';
 import { trpc } from '@/lib/trpc';
 import { DEFAULT_MODEL_ID } from '@entur-ai/ai';
 
@@ -21,8 +24,13 @@ export function Shell({ user }: { user: UserShape }) {
   const [settingsOpen, setSettingsOpen] = useState<
     'profile' | 'keys' | 'memories' | 'kb' | null
   >(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [activePromptId, setActivePromptId] = useState<string | null>(null);
+
+  const chatRef = useRef<ChatPaneHandle | null>(null);
 
   const utils = trpc.useUtils();
+  const { data: profile } = trpc.profile.getMine.useQuery();
   const createConv = trpc.conversations.create.useMutation({
     onSuccess: (conv) => {
       utils.conversations.list.invalidate();
@@ -30,14 +38,17 @@ export function Shell({ user }: { user: UserShape }) {
     },
   });
 
-  const newChat = useCallback(() => {
-    setActiveId(null);
-  }, []);
+  const newChat = useCallback(() => setActiveId(null), []);
 
-  // ⌘K para nova conversa
+  // ⌘K abre palette; ⌘N nova conversa
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      const cmd = e.metaKey || e.ctrlKey;
+      if (cmd && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPaletteOpen(true);
+      }
+      if (cmd && e.shiftKey && e.key.toLowerCase() === 'n') {
         e.preventDefault();
         newChat();
       }
@@ -45,6 +56,8 @@ export function Shell({ user }: { user: UserShape }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [newChat]);
+
+  const showOnboarding = !!profile && profile.onboarded === false;
 
   return (
     <div className="h-screen flex bg-bg-base text-text-primary">
@@ -67,7 +80,6 @@ export function Shell({ user }: { user: UserShape }) {
             onClick={() => setCollapsed((c) => !c)}
             className="ml-auto text-text-tertiary hover:text-text-primary p-1 rounded transition-colors duration-150"
             title={collapsed ? 'Expandir' : 'Recolher'}
-            aria-label={collapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               {collapsed ? <path d="M9 18l6-6-6-6" /> : <path d="M15 18l-6-6 6-6" />}
@@ -75,7 +87,7 @@ export function Shell({ user }: { user: UserShape }) {
           </button>
         </div>
 
-        <div className="px-3 mb-3">
+        <div className="px-3 mb-2 space-y-1.5">
           <button
             onClick={newChat}
             className={cn(
@@ -90,6 +102,23 @@ export function Shell({ user }: { user: UserShape }) {
             {!collapsed && (
               <>
                 <span className="flex-1 text-left">Nova conversa</span>
+                <kbd className="text-xs font-mono text-text-tertiary">⌘⇧N</kbd>
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={() => setPaletteOpen(true)}
+            className={cn(
+              'w-full flex items-center gap-2 px-3 py-1.5 rounded-md',
+              'border border-border-subtle bg-bg-elevated/40 hover:bg-bg-elevated',
+              'text-sm transition-colors duration-150'
+            )}
+          >
+            <span className="text-text-tertiary">⌘</span>
+            {!collapsed && (
+              <>
+                <span className="flex-1 text-left text-text-secondary">Buscar comandos…</span>
                 <kbd className="text-xs font-mono text-text-tertiary">⌘K</kbd>
               </>
             )}
@@ -141,7 +170,11 @@ export function Shell({ user }: { user: UserShape }) {
             {!collapsed && (
               <span className="flex-1 min-w-0">
                 <div className="text-sm text-text-primary truncate">{user.name || user.email}</div>
-                <div className="text-xs text-text-tertiary truncate">Sair</div>
+                <div className="text-xs text-text-tertiary truncate">
+                  {profile?.department && profile.department !== 'outros'
+                    ? profile.department
+                    : 'Sair'}
+                </div>
               </span>
             )}
           </button>
@@ -149,6 +182,7 @@ export function Shell({ user }: { user: UserShape }) {
       </aside>
 
       <ChatPane
+        ref={chatRef}
         activeId={activeId}
         modelId={modelId}
         setModelId={setModelId}
@@ -163,6 +197,7 @@ export function Shell({ user }: { user: UserShape }) {
         onActiveChanged={setActiveId}
         onMissingKey={() => setSettingsOpen('keys')}
         userName={user.name || user.email}
+        onOpenPalette={() => setPaletteOpen(true)}
       />
 
       <SettingsDialog
@@ -170,6 +205,30 @@ export function Shell({ user }: { user: UserShape }) {
         tab={settingsOpen || 'memories'}
         onTabChange={(t) => setSettingsOpen(t)}
         onClose={() => setSettingsOpen(null)}
+      />
+
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onNewChat={newChat}
+        onPickConversation={setActiveId}
+        onPickPromptId={(id) => setActivePromptId(id)}
+        onSelectModel={setModelId}
+        onOpenSettings={(t) => setSettingsOpen(t)}
+      />
+
+      <PromptVariablesDialog
+        promptId={activePromptId}
+        onClose={() => setActivePromptId(null)}
+        onUse={(rendered) => {
+          setActivePromptId(null);
+          chatRef.current?.insertText(rendered);
+        }}
+      />
+
+      <OnboardingDialog
+        open={showOnboarding}
+        onComplete={() => utils.profile.getMine.invalidate()}
       />
     </div>
   );
