@@ -1,14 +1,27 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { lazy, Suspense, useEffect, useState, useCallback, useRef } from 'react';
 import { signOut } from '@/lib/auth-client';
 import { cn } from '@/lib/cn';
 import { Sidebar } from './Sidebar';
 import { ChatPane, type ChatPaneHandle } from './ChatPane';
-import { SettingsDialog } from './SettingsDialog';
-import { CommandPalette } from './CommandPalette';
-import { PromptVariablesDialog } from './PromptVariablesDialog';
-import { OnboardingDialog } from './OnboardingDialog';
 import { trpc } from '@/lib/trpc';
 import { DEFAULT_MODEL_ID } from '@entur-ai/ai';
+
+// Lazy-loaded dialogs (não fazem parte do bundle inicial)
+const SettingsDialog = lazy(() =>
+  import('./SettingsDialog').then((m) => ({ default: m.SettingsDialog }))
+);
+const CommandPalette = lazy(() =>
+  import('./CommandPalette').then((m) => ({ default: m.CommandPalette }))
+);
+const PromptVariablesDialog = lazy(() =>
+  import('./PromptVariablesDialog').then((m) => ({ default: m.PromptVariablesDialog }))
+);
+const OnboardingDialog = lazy(() =>
+  import('./OnboardingDialog').then((m) => ({ default: m.OnboardingDialog }))
+);
+const AdminPanel = lazy(() =>
+  import('./AdminPanel').then((m) => ({ default: m.AdminPanel }))
+);
 
 interface UserShape {
   id: string;
@@ -26,6 +39,7 @@ export function Shell({ user }: { user: UserShape }) {
   >(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [activePromptId, setActivePromptId] = useState<string | null>(null);
+  const [adminOpen, setAdminOpen] = useState(false);
 
   const chatRef = useRef<ChatPaneHandle | null>(null);
 
@@ -39,8 +53,8 @@ export function Shell({ user }: { user: UserShape }) {
   });
 
   const newChat = useCallback(() => setActiveId(null), []);
+  const isAdmin = profile?.role === 'admin' || profile?.role === 'director';
 
-  // ⌘K abre palette; ⌘N nova conversa
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const cmd = e.metaKey || e.ctrlKey;
@@ -61,16 +75,24 @@ export function Shell({ user }: { user: UserShape }) {
 
   return (
     <div className="h-screen flex bg-bg-base text-text-primary">
+      <a
+        href="#chat-main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:bg-accent-teal focus:text-bg-base focus:px-3 focus:py-1.5 focus:rounded-md focus:text-sm"
+      >
+        Pular para o chat
+      </a>
+
       <aside
         className={cn(
           'shrink-0 bg-bg-surface border-r border-border-subtle flex flex-col h-full',
           'transition-[width] duration-200 ease-out-expo',
           collapsed ? 'w-16' : 'w-[280px]'
         )}
+        aria-label="Navegação lateral"
       >
         <div className="px-4 py-4 flex items-center gap-2">
           {!collapsed ? (
-            <img src="/logo.png" alt="Entur" className="h-7 w-auto" />
+            <img src="/logo.png" alt="ENTUR" className="h-7 w-auto" />
           ) : (
             <div className="w-8 h-8 rounded-md bg-accent-teal/10 flex items-center justify-center text-accent-teal-hi font-semibold text-sm">
               E
@@ -79,9 +101,9 @@ export function Shell({ user }: { user: UserShape }) {
           <button
             onClick={() => setCollapsed((c) => !c)}
             className="ml-auto text-text-tertiary hover:text-text-primary p-1 rounded transition-colors duration-150"
-            title={collapsed ? 'Expandir' : 'Recolher'}
+            aria-label={collapsed ? 'Expandir navegação' : 'Recolher navegação'}
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               {collapsed ? <path d="M9 18l6-6-6-6" /> : <path d="M15 18l-6-6 6-6" />}
             </svg>
           </button>
@@ -95,8 +117,9 @@ export function Shell({ user }: { user: UserShape }) {
               'bg-accent-teal/10 hover:bg-accent-teal/20 text-accent-teal-hi border border-accent-teal/20',
               'text-sm font-medium transition-colors duration-150 ease-out-expo'
             )}
+            aria-label="Nova conversa"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <path d="M12 5v14M5 12h14" />
             </svg>
             {!collapsed && (
@@ -114,8 +137,9 @@ export function Shell({ user }: { user: UserShape }) {
               'border border-border-subtle bg-bg-elevated/40 hover:bg-bg-elevated',
               'text-sm transition-colors duration-150'
             )}
+            aria-label="Buscar comandos e prompts"
           >
-            <span className="text-text-tertiary">⌘</span>
+            <span className="text-text-tertiary" aria-hidden="true">⌘</span>
             {!collapsed && (
               <>
                 <span className="flex-1 text-left text-text-secondary">Buscar comandos…</span>
@@ -125,9 +149,7 @@ export function Shell({ user }: { user: UserShape }) {
           </button>
         </div>
 
-        {!collapsed && (
-          <Sidebar activeId={activeId} onSelect={setActiveId} />
-        )}
+        {!collapsed && <Sidebar activeId={activeId} onSelect={setActiveId} />}
 
         <div className="border-t border-border-subtle p-3 space-y-1">
           {!collapsed && (
@@ -150,6 +172,14 @@ export function Shell({ user }: { user: UserShape }) {
               >
                 Chaves de IA
               </button>
+              {isAdmin && (
+                <button
+                  onClick={() => setAdminOpen(true)}
+                  className="w-full text-left px-2 py-1.5 rounded-md text-xs text-accent-amber hover:bg-bg-elevated transition-colors"
+                >
+                  Painel da Diretoria
+                </button>
+              )}
             </>
           )}
           <button
@@ -158,7 +188,7 @@ export function Shell({ user }: { user: UserShape }) {
               'w-full flex items-center gap-3 px-2 py-2 rounded-md',
               'hover:bg-bg-elevated transition-colors duration-150 text-left'
             )}
-            title="Sair"
+            aria-label="Sair"
           >
             {user.image ? (
               <img src={user.image} alt="" className="w-7 h-7 rounded-full shrink-0" />
@@ -181,55 +211,67 @@ export function Shell({ user }: { user: UserShape }) {
         </div>
       </aside>
 
-      <ChatPane
-        ref={chatRef}
-        activeId={activeId}
-        modelId={modelId}
-        setModelId={setModelId}
-        onNewChat={newChat}
-        onCreateConversation={async (firstMessage) => {
-          const created = await createConv.mutateAsync({
-            title: firstMessage.slice(0, 60) || 'Nova conversa',
-            model: modelId,
-          });
-          return created.id;
-        }}
-        onActiveChanged={setActiveId}
-        onMissingKey={() => setSettingsOpen('keys')}
-        userName={user.name || user.email}
-        onOpenPalette={() => setPaletteOpen(true)}
-      />
+      <div id="chat-main" className="flex-1 flex flex-col min-w-0">
+        <ChatPane
+          ref={chatRef}
+          activeId={activeId}
+          modelId={modelId}
+          setModelId={setModelId}
+          onNewChat={newChat}
+          onCreateConversation={async (firstMessage) => {
+            const created = await createConv.mutateAsync({
+              title: firstMessage.slice(0, 60) || 'Nova conversa',
+              model: modelId,
+            });
+            return created.id;
+          }}
+          onActiveChanged={setActiveId}
+          onMissingKey={() => setSettingsOpen('keys')}
+          userName={user.name || user.email}
+          onOpenPalette={() => setPaletteOpen(true)}
+        />
+      </div>
 
-      <SettingsDialog
-        open={settingsOpen !== null}
-        tab={settingsOpen || 'memories'}
-        onTabChange={(t) => setSettingsOpen(t)}
-        onClose={() => setSettingsOpen(null)}
-      />
-
-      <CommandPalette
-        open={paletteOpen}
-        onClose={() => setPaletteOpen(false)}
-        onNewChat={newChat}
-        onPickConversation={setActiveId}
-        onPickPromptId={(id) => setActivePromptId(id)}
-        onSelectModel={setModelId}
-        onOpenSettings={(t) => setSettingsOpen(t)}
-      />
-
-      <PromptVariablesDialog
-        promptId={activePromptId}
-        onClose={() => setActivePromptId(null)}
-        onUse={(rendered) => {
-          setActivePromptId(null);
-          chatRef.current?.insertText(rendered);
-        }}
-      />
-
-      <OnboardingDialog
-        open={showOnboarding}
-        onComplete={() => utils.profile.getMine.invalidate()}
-      />
+      <Suspense fallback={null}>
+        {settingsOpen !== null && (
+          <SettingsDialog
+            open={settingsOpen !== null}
+            tab={settingsOpen || 'memories'}
+            onTabChange={(t) => setSettingsOpen(t)}
+            onClose={() => setSettingsOpen(null)}
+          />
+        )}
+        {paletteOpen && (
+          <CommandPalette
+            open={paletteOpen}
+            onClose={() => setPaletteOpen(false)}
+            onNewChat={newChat}
+            onPickConversation={setActiveId}
+            onPickPromptId={(id) => setActivePromptId(id)}
+            onSelectModel={setModelId}
+            onOpenSettings={(t) => setSettingsOpen(t)}
+          />
+        )}
+        {activePromptId && (
+          <PromptVariablesDialog
+            promptId={activePromptId}
+            onClose={() => setActivePromptId(null)}
+            onUse={(rendered) => {
+              setActivePromptId(null);
+              chatRef.current?.insertText(rendered);
+            }}
+          />
+        )}
+        {showOnboarding && (
+          <OnboardingDialog
+            open={showOnboarding}
+            onComplete={() => utils.profile.getMine.invalidate()}
+          />
+        )}
+        {adminOpen && (
+          <AdminPanel open={adminOpen} onClose={() => setAdminOpen(false)} />
+        )}
+      </Suspense>
     </div>
   );
 }

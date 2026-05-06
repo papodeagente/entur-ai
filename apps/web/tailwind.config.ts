@@ -60,10 +60,15 @@ const config: Config = {
           from: { opacity: '0', transform: 'translateY(8px)' },
           to: { opacity: '1', transform: 'translateY(0)' },
         },
+        skeleton: {
+          '0%': { backgroundPosition: '100% 50%' },
+          '100%': { backgroundPosition: '0% 50%' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 200ms cubic-bezier(0.16, 1, 0.3, 1)',
         'slide-in-up': 'slide-in-up 240ms cubic-bezier(0.16, 1, 0.3, 1)',
+        skeleton: 'skeleton 1.6s ease-in-out infinite',
       },
     },
   },

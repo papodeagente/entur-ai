@@ -5,6 +5,7 @@ import { memoriesRouter } from './routers/memories';
 import { kbRouter } from './routers/kb';
 import { promptsRouter } from './routers/prompts';
 import { profileRouter } from './routers/profile';
+import { adminRouter } from './routers/admin';
 import { MODELS } from '@entur-ai/ai';
 
 export const appRouter = router({
@@ -26,6 +27,7 @@ export const appRouter = router({
   kb: kbRouter,
   prompts: promptsRouter,
   profile: profileRouter,
+  admin: adminRouter,
 });
 
 export type AppRouter = typeof appRouter;

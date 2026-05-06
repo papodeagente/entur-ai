@@ -9,6 +9,9 @@ import {
   getModel,
   isImageModel,
   humanizeProviderError,
+  estimateTokens,
+  chatCostCents,
+  imageCostCents,
   type Attachment,
   type ChatMessage,
   type ToolFlags,
@@ -170,6 +173,7 @@ export function attachSocket(httpServer: HttpServer, _appUrl: string): SocketSer
               b64: imgResult.b64,
             });
 
+            const imgCostCents = imageCostCents(modelId);
             const [assistantMsg] = await db
               .insert(schema.message)
               .values({
@@ -179,6 +183,7 @@ export function attachSocket(httpServer: HttpServer, _appUrl: string): SocketSer
                 content: '',
                 model: modelId,
                 provider: model.provider,
+                costCents: imgCostCents,
                 outputs: { images: [imgResult] } as any,
               })
               .returning();
@@ -191,6 +196,7 @@ export function attachSocket(httpServer: HttpServer, _appUrl: string): SocketSer
               messageId: assistantMsg.id,
               provider: model.provider,
               model: modelId,
+              costCents: imgCostCents,
               latencyMs: Date.now() - startedAt,
             });
 
@@ -377,6 +383,12 @@ export function attachSocket(httpServer: HttpServer, _appUrl: string): SocketSer
           })),
         ];
 
+        // Estimativa de tokens (chars/4 em todo o input + output)
+        const promptText = systemPrompt + previousFull.map((m: any) => m.content).join('\n') + content;
+        const promptTokens = estimateTokens(promptText);
+        const completionTokens = estimateTokens(assistantText) + estimateTokens(assistantThinking);
+        const cost = chatCostCents(modelId, promptTokens, completionTokens);
+
         const [assistantMsg] = await db
           .insert(schema.message)
           .values({
@@ -386,6 +398,9 @@ export function attachSocket(httpServer: HttpServer, _appUrl: string): SocketSer
             content: assistantText,
             model: modelId,
             provider: model.provider,
+            promptTokens,
+            completionTokens,
+            costCents: cost,
             thinking: assistantThinking || null,
             citations: allCitations.length > 0 ? (allCitations as any) : null,
             outputs: collectedImages.length > 0 ? ({ images: collectedImages } as any) : null,
@@ -406,6 +421,9 @@ export function attachSocket(httpServer: HttpServer, _appUrl: string): SocketSer
           messageId: assistantMsg.id,
           provider: model.provider,
           model: modelId,
+          promptTokens,
+          completionTokens,
+          costCents: cost,
           latencyMs: Date.now() - startedAt,
         });
 

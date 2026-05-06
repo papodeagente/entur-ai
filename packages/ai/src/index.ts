@@ -6,6 +6,7 @@ import type { ChatMessage, Provider, StreamArgs, StreamEvent, ToolFlags } from '
 
 export * from './types';
 export * from './models';
+export * from './pricing';
 
 export async function* streamChat(
   args: StreamArgs

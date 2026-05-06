@@ -2,6 +2,7 @@ import { useMemo, useState, useRef, useEffect } from 'react';
 import { trpc } from '@/lib/trpc';
 import { cn } from '@/lib/cn';
 import { groupConversationsByDate } from '@/lib/format';
+import { SidebarSkeleton } from './Skeleton';
 
 interface Props {
   activeId: string | null;
@@ -64,12 +65,8 @@ export function Sidebar({ activeId, onSelect }: Props) {
         />
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-clean px-2 pb-3">
-        {!conversations && (
-          <div className="text-xs text-text-tertiary px-2 py-2 animate-fade-in">
-            Carregando conversas…
-          </div>
-        )}
+      <div className="flex-1 overflow-y-auto scrollbar-clean px-2 pb-3" aria-label="Lista de conversas">
+        {!conversations && <SidebarSkeleton />}
         {conversations && filtered.length === 0 && (
           <div className="text-xs text-text-tertiary px-2 py-2">
             {search ? 'Nada encontrado.' : 'Nenhuma conversa ainda.'}
