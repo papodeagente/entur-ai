@@ -11,6 +11,7 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   ALLOWED_EMAIL_DOMAIN: z.string().default('entur.com.br'),
+  EXTRA_ORIGINS: z.string().optional(),
 });
 
 export const env = envSchema.parse(process.env);

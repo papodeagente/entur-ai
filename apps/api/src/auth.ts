@@ -19,7 +19,14 @@ export const auth = betterAuth({
   }),
   baseURL: env.APP_URL,
   secret: env.APP_SECRET,
-  trustedOrigins: [env.APP_URL],
+  trustedOrigins: [
+    env.APP_URL,
+    ...(env.EXTRA_ORIGINS
+      ? env.EXTRA_ORIGINS.split(',')
+          .map((o) => o.trim())
+          .filter(Boolean)
+      : []),
+  ],
   advanced: {
     database: {
       generateId: () => crypto.randomUUID(),
