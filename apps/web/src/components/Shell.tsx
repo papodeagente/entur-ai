@@ -1,6 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { signOut } from '@/lib/auth-client';
 import { cn } from '@/lib/cn';
+import { Sidebar } from './Sidebar';
+import { ChatPane } from './ChatPane';
+import { SettingsDialog } from './SettingsDialog';
+import { trpc } from '@/lib/trpc';
+import { DEFAULT_MODEL_ID } from '@entur-ai/ai';
 
 interface UserShape {
   id: string;
@@ -11,6 +16,33 @@ interface UserShape {
 
 export function Shell({ user }: { user: UserShape }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [modelId, setModelId] = useState<string>(DEFAULT_MODEL_ID);
+  const [settingsOpen, setSettingsOpen] = useState<'profile' | 'keys' | null>(null);
+
+  const utils = trpc.useUtils();
+  const createConv = trpc.conversations.create.useMutation({
+    onSuccess: (conv) => {
+      utils.conversations.list.invalidate();
+      setActiveId(conv.id);
+    },
+  });
+
+  const newChat = useCallback(() => {
+    setActiveId(null);
+  }, []);
+
+  // ⌘K para nova conversa
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        newChat();
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [newChat]);
 
   return (
     <div className="h-screen flex bg-bg-base text-text-primary">
@@ -36,17 +68,14 @@ export function Shell({ user }: { user: UserShape }) {
             aria-label={collapsed ? 'Expandir sidebar' : 'Recolher sidebar'}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              {collapsed ? (
-                <path d="M9 18l6-6-6-6" />
-              ) : (
-                <path d="M15 18l-6-6 6-6" />
-              )}
+              {collapsed ? <path d="M9 18l6-6-6-6" /> : <path d="M15 18l-6-6 6-6" />}
             </svg>
           </button>
         </div>
 
         <div className="px-3 mb-3">
           <button
+            onClick={newChat}
             className={cn(
               'w-full flex items-center gap-2 px-3 py-2 rounded-md',
               'bg-accent-teal/10 hover:bg-accent-teal/20 text-accent-teal-hi border border-accent-teal/20',
@@ -65,26 +94,24 @@ export function Shell({ user }: { user: UserShape }) {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto scrollbar-clean px-3">
-          {!collapsed && (
-            <div className="text-xs text-text-tertiary uppercase tracking-wider px-2 mb-2 mt-4">
-              Conversas
-            </div>
-          )}
-          {!collapsed && (
-            <div className="text-xs text-text-tertiary px-2 py-2">
-              As conversas aparecerão aqui assim que o chat estiver ativo (Fase 2).
-            </div>
-          )}
-        </div>
+        {!collapsed && (
+          <Sidebar activeId={activeId} onSelect={setActiveId} />
+        )}
 
-        <div className="border-t border-border-subtle p-3">
+        <div className="border-t border-border-subtle p-3 space-y-1">
+          {!collapsed && (
+            <button
+              onClick={() => setSettingsOpen('keys')}
+              className="w-full text-left px-2 py-1.5 rounded-md text-xs text-text-secondary hover:bg-bg-elevated transition-colors"
+            >
+              🔑 Chaves de IA
+            </button>
+          )}
           <button
             onClick={() => signOut()}
             className={cn(
               'w-full flex items-center gap-3 px-2 py-2 rounded-md',
-              'hover:bg-bg-elevated transition-colors duration-150',
-              'text-left'
+              'hover:bg-bg-elevated transition-colors duration-150 text-left'
             )}
             title="Sair"
           >
@@ -98,32 +125,36 @@ export function Shell({ user }: { user: UserShape }) {
             {!collapsed && (
               <span className="flex-1 min-w-0">
                 <div className="text-sm text-text-primary truncate">{user.name || user.email}</div>
-                <div className="text-xs text-text-tertiary truncate">{user.email}</div>
+                <div className="text-xs text-text-tertiary truncate">Sair</div>
               </span>
             )}
           </button>
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 flex items-center px-6 border-b border-border-subtle">
-          <h1 className="text-sm font-medium text-text-secondary tracking-tightish">
-            ENTUR AI · Fundação
-          </h1>
-        </header>
-        <div className="flex-1 flex items-center justify-center p-8">
-          <div className="text-center max-w-md animate-slide-in-up">
-            <div className="text-text-secondary text-sm mb-3">Bem-vindo,</div>
-            <h2 className="text-2xl font-semibold tracking-tighter2 mb-2">
-              {user.name || user.email}
-            </h2>
-            <p className="text-sm text-text-tertiary leading-relaxed">
-              Fundação concluída. O chat com IA, memória, RAG e biblioteca de prompts
-              chegam nas próximas fases.
-            </p>
-          </div>
-        </div>
-      </main>
+      <ChatPane
+        activeId={activeId}
+        modelId={modelId}
+        setModelId={setModelId}
+        onNewChat={newChat}
+        onCreateConversation={async (firstMessage) => {
+          const created = await createConv.mutateAsync({
+            title: firstMessage.slice(0, 60) || 'Nova conversa',
+            model: modelId,
+          });
+          return created.id;
+        }}
+        onActiveChanged={setActiveId}
+        onMissingKey={() => setSettingsOpen('keys')}
+        userName={user.name || user.email}
+      />
+
+      <SettingsDialog
+        open={settingsOpen !== null}
+        tab={settingsOpen || 'keys'}
+        onTabChange={(t) => setSettingsOpen(t)}
+        onClose={() => setSettingsOpen(null)}
+      />
     </div>
   );
 }

@@ -4,13 +4,13 @@ import cors from 'cors';
 import path from 'node:path';
 import fs from 'node:fs';
 import { createServer } from 'node:http';
-import { Server as SocketServer } from 'socket.io';
 import { createExpressMiddleware } from '@trpc/server/adapters/express';
 import { toNodeHandler } from 'better-auth/node';
 import { auth } from './auth';
 import { appRouter } from './router';
 import { createContext } from './trpc';
 import { runMigrations } from './migrate';
+import { attachSocket } from './socket';
 
 async function main() {
   console.log('▸ ENTUR AI api · iniciando…');
@@ -64,14 +64,7 @@ async function main() {
     })
   );
 
-  const io = new SocketServer(server, {
-    cors: { origin: env.APP_URL, credentials: true },
-    path: '/socket.io',
-  });
-
-  io.on('connection', (socket) => {
-    socket.emit('hello', { ts: Date.now() });
-  });
+  attachSocket(server, env.APP_URL);
 
   // Serve web static build em produção
   if (env.NODE_ENV === 'production') {
