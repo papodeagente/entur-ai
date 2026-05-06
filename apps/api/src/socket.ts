@@ -2,16 +2,20 @@ import { Server as SocketServer, Socket } from 'socket.io';
 import type { Server as HttpServer } from 'node:http';
 import { auth } from './auth';
 import { db, schema } from '@entur-ai/db';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq } from 'drizzle-orm';
 import { streamChat, getModel, humanizeProviderError, type ChatMessage } from '@entur-ai/ai';
+import { retrieve } from '@entur-ai/rag';
 import { getApiKey } from './services/settings';
+import { generateTitle, extractMemories } from './services/aiTasks';
 
 const TENANT_ID = 'entur';
-const SYSTEM_PROMPT =
+
+const BASE_SYSTEM_PROMPT =
   'Você é o ENTUR AI, copiloto interno da Escola de Negócios do Turismo. ' +
   'Responda sempre em português brasileiro, com objetividade e densidade. ' +
   'Use markdown quando ajudar (listas, código, tabelas). ' +
-  'Quando o usuário pedir conteúdo para a Entur (Papo de Agente, vendas SPIN, mentorias), siga o tom da casa: claro, prático, sem caixa alta, sem manchetes sensacionalistas.';
+  'Quando o usuário pedir conteúdo para a Entur (Papo de Agente, vendas SPIN, mentorias), siga o tom da casa: claro, prático, sem caixa alta, sem manchetes sensacionalistas. ' +
+  'Mulher como decisora; nada de hífens estilizados; nada de padrões de IA óbvios.';
 
 interface SocketUser {
   id: string;
@@ -24,7 +28,7 @@ declare module 'socket.io' {
   }
 }
 
-export function attachSocket(httpServer: HttpServer, appUrl: string): SocketServer {
+export function attachSocket(httpServer: HttpServer, _appUrl: string): SocketServer {
   const io = new SocketServer(httpServer, {
     cors: { origin: true, credentials: true },
     path: '/socket.io',
@@ -58,21 +62,12 @@ export function attachSocket(httpServer: HttpServer, appUrl: string): SocketServ
           content: string;
           modelId: string;
         };
-        if (!socket.user) {
-          ack({ ok: false, error: 'UNAUTHORIZED' });
-          return;
-        }
-        if (!conversationId || !content?.trim() || !modelId) {
-          ack({ ok: false, error: 'invalid_payload' });
-          return;
-        }
+        if (!socket.user) return ack({ ok: false, error: 'UNAUTHORIZED' });
+        if (!conversationId || !content?.trim() || !modelId)
+          return ack({ ok: false, error: 'invalid_payload' });
         const model = getModel(modelId);
-        if (!model) {
-          ack({ ok: false, error: 'invalid_model' });
-          return;
-        }
+        if (!model) return ack({ ok: false, error: 'invalid_model' });
 
-        // Verificar conversa pertence ao usuário
         const convs = await db
           .select()
           .from(schema.conversation)
@@ -85,21 +80,17 @@ export function attachSocket(httpServer: HttpServer, appUrl: string): SocketServ
           )
           .limit(1);
         const conv = convs[0];
-        if (!conv) {
-          ack({ ok: false, error: 'conversation_not_found' });
-          return;
-        }
+        if (!conv) return ack({ ok: false, error: 'conversation_not_found' });
 
-        // Buscar API key
         const apiKey = await getApiKey(model.provider);
         if (!apiKey) {
-          ack({
+          return ack({
             ok: false,
             error: 'missing_api_key',
             message: `Chave ${model.provider.toUpperCase()} não cadastrada. Vá em Configurações > Chaves de IA.`,
           });
-          return;
         }
+        const openaiKey = await getApiKey('openai'); // p/ embeddings + tasks
 
         // Histórico
         const previous = await db
@@ -118,35 +109,75 @@ export function attachSocket(httpServer: HttpServer, appUrl: string): SocketServ
             content,
           })
           .returning();
+        socket.emit('chat.user_message', { conversationId: conv.id, message: userMsg });
 
-        // Notificar UI que a user message foi salva (com ID)
-        socket.emit('chat.user_message', {
-          conversationId: conv.id,
-          message: userMsg,
-        });
-
-        // Atualizar título inteligente se for a primeira mensagem
         const isFirstExchange = previous.length === 0;
-        if (isFirstExchange && conv.title === 'Nova conversa') {
-          const newTitle = content.replace(/\n/g, ' ').slice(0, 60).trim() || 'Nova conversa';
-          await db
-            .update(schema.conversation)
-            .set({ title: newTitle, model: modelId })
-            .where(eq(schema.conversation.id, conv.id));
-          socket.emit('conversation.updated', { id: conv.id, title: newTitle, model: modelId });
-        } else {
-          await db
-            .update(schema.conversation)
-            .set({ model: modelId, updatedAt: new Date() })
-            .where(eq(schema.conversation.id, conv.id));
-        }
+        await db
+          .update(schema.conversation)
+          .set({ model: modelId, updatedAt: new Date() })
+          .where(eq(schema.conversation.id, conv.id));
 
-        // Stream
         ack({ ok: true });
         socket.emit('chat.start', { conversationId: conv.id, modelId });
 
+        // ====== RAG: retrieval ======
+        let kbChunks: Array<{ chunkId: string; documentId: string; documentTitle: string; content: string }> = [];
+        if (openaiKey) {
+          try {
+            socket.emit('chat.rag_searching', { conversationId: conv.id });
+            const matches = await retrieve({
+              tenantId: TENANT_ID,
+              query: content,
+              apiKey: openaiKey,
+              topK: 5,
+              minSimilarity: 0.35,
+            });
+            kbChunks = matches.map((m) => ({
+              chunkId: m.chunkId,
+              documentId: m.documentId,
+              documentTitle: m.documentTitle,
+              content: m.content,
+            }));
+          } catch (err) {
+            // RAG é melhor-esforço; não bloqueia o chat
+            console.warn('RAG retrieve falhou:', err instanceof Error ? err.message : err);
+          }
+        }
+
+        // ====== Memórias do usuário ======
+        const memoryRows = await db
+          .select({ content: schema.userMemory.content, category: schema.userMemory.category })
+          .from(schema.userMemory)
+          .where(
+            and(
+              eq(schema.userMemory.tenantId, TENANT_ID),
+              eq(schema.userMemory.userId, socket.user.id)
+            )
+          )
+          .orderBy(desc(schema.userMemory.updatedAt))
+          .limit(50);
+
+        // ====== Construir system prompt enriquecido ======
+        const sysParts: string[] = [BASE_SYSTEM_PROMPT];
+        if (memoryRows.length > 0) {
+          sysParts.push(
+            '## Memórias sobre o usuário (use para personalizar, mas não force referências)',
+            memoryRows.map((m, i) => `${i + 1}. ${m.content}${m.category ? ` (${m.category})` : ''}`).join('\n')
+          );
+        }
+        if (kbChunks.length > 0) {
+          sysParts.push(
+            '## Conhecimento institucional ENTUR (use SOMENTE se for útil; sempre que usar, cite a fonte com [Fonte: <título>])',
+            kbChunks
+              .map((c, i) => `### Fonte ${i + 1}: ${c.documentTitle}\n${c.content}`)
+              .join('\n\n')
+          );
+        }
+        const systemPrompt = sysParts.join('\n\n');
+
+        // ====== Stream ======
         const messages: ChatMessage[] = [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: systemPrompt },
           ...previous.map((m) => ({
             role: m.role as 'user' | 'assistant',
             content: m.content,
@@ -156,18 +187,13 @@ export function attachSocket(httpServer: HttpServer, appUrl: string): SocketServ
 
         let assistantText = '';
         try {
-          for await (const delta of streamChat({
-            modelId,
-            messages,
-            apiKey,
-          })) {
+          for await (const delta of streamChat({ modelId, messages, apiKey })) {
             assistantText += delta;
             socket.emit('chat.delta', { conversationId: conv.id, text: delta });
           }
         } catch (err) {
           const friendly = humanizeProviderError(err, model.provider, modelId);
           socket.emit('chat.error', { conversationId: conv.id, message: friendly });
-          // Loga uso com erro
           await db.insert(schema.usageLog).values({
             tenantId: TENANT_ID,
             userId: socket.user.id,
@@ -180,7 +206,16 @@ export function attachSocket(httpServer: HttpServer, appUrl: string): SocketServ
           return;
         }
 
-        // Persistir assistant message
+        // ====== Persistir assistant message + citations ======
+        const citations =
+          kbChunks.length > 0
+            ? kbChunks.map((c) => ({
+                documentId: c.documentId,
+                documentTitle: c.documentTitle,
+                snippet: c.content.slice(0, 220),
+              }))
+            : null;
+
         const [assistantMsg] = await db
           .insert(schema.message)
           .values({
@@ -190,15 +225,16 @@ export function attachSocket(httpServer: HttpServer, appUrl: string): SocketServ
             content: assistantText,
             model: modelId,
             provider: model.provider,
+            citations: citations as any,
           })
           .returning();
 
         socket.emit('chat.done', {
           conversationId: conv.id,
           message: assistantMsg,
+          citations,
         });
 
-        // Audit log
         await db.insert(schema.usageLog).values({
           tenantId: TENANT_ID,
           userId: socket.user.id,
@@ -208,6 +244,59 @@ export function attachSocket(httpServer: HttpServer, appUrl: string): SocketServ
           model: modelId,
           latencyMs: Date.now() - startedAt,
         });
+
+        // ====== Background: auto-título + extração de memórias ======
+        if (openaiKey) {
+          // Auto-título na primeira troca
+          if (isFirstExchange && conv.title === 'Nova conversa') {
+            generateTitle({
+              apiKey: openaiKey,
+              userMessage: content,
+              assistantReply: assistantText,
+            })
+              .then(async (newTitle) => {
+                if (newTitle) {
+                  await db
+                    .update(schema.conversation)
+                    .set({ title: newTitle })
+                    .where(eq(schema.conversation.id, conv.id));
+                  socket.emit('conversation.updated', {
+                    id: conv.id,
+                    title: newTitle,
+                    model: modelId,
+                  });
+                }
+              })
+              .catch(() => {});
+          }
+
+          // Extração de memórias
+          const userId = socket.user.id;
+          extractMemories({
+            apiKey: openaiKey,
+            userMessage: content,
+            assistantReply: assistantText,
+            existingMemories: memoryRows.map((m) => m.content),
+          })
+            .then(async (extracted) => {
+              if (extracted.length === 0) return;
+              for (const m of extracted) {
+                const [created] = await db
+                  .insert(schema.userMemory)
+                  .values({
+                    tenantId: TENANT_ID,
+                    userId,
+                    content: m.content,
+                    category: m.category || null,
+                    sourceConvId: conv.id,
+                    source: 'auto_extract',
+                  })
+                  .returning();
+                socket.emit('memory.added', { memory: created });
+              }
+            })
+            .catch(() => {});
+        }
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Erro desconhecido';
         socket.emit('chat.error', { message: msg });

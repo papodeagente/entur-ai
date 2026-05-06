@@ -1,6 +1,8 @@
 import { router, publicProcedure, tenantProcedure } from './trpc';
 import { conversationsRouter } from './routers/conversations';
 import { settingsRouter } from './routers/settings';
+import { memoriesRouter } from './routers/memories';
+import { kbRouter } from './routers/kb';
 import { MODELS } from '@entur-ai/ai';
 
 export const appRouter = router({
@@ -18,6 +20,8 @@ export const appRouter = router({
 
   conversations: conversationsRouter,
   settings: settingsRouter,
+  memories: memoriesRouter,
+  kb: kbRouter,
 });
 
 export type AppRouter = typeof appRouter;

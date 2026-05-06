@@ -47,6 +47,7 @@ export function ChatPane({
 
   const [streamingText, setStreamingText] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
+  const [ragSearching, setRagSearching] = useState(false);
   const [optimisticMessages, setOptimisticMessages] = useState<Message[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const streamingConvRef = useRef<string | null>(null);
@@ -89,6 +90,16 @@ export function ChatPane({
       setIsStreaming(true);
     };
 
+    const onRagSearching = () => setRagSearching(true);
+
+    const onMemoryAdded = (payload: any) => {
+      utils.memories.list.invalidate();
+      toast.success('💡 Nova memória salva', {
+        description: payload.memory?.content?.slice(0, 100),
+        duration: 4000,
+      });
+    };
+
     const onDelta = (payload: any) => {
       if (payload.conversationId === streamingConvRef.current) {
         setStreamingText((s) => s + payload.text);
@@ -97,6 +108,7 @@ export function ChatPane({
 
     const onDone = (payload: any) => {
       setIsStreaming(false);
+      setRagSearching(false);
       setStreamingText('');
       streamingConvRef.current = null;
       setOptimisticMessages([]);
@@ -106,6 +118,7 @@ export function ChatPane({
 
     const onError = (payload: any) => {
       setIsStreaming(false);
+      setRagSearching(false);
       setStreamingText('');
       streamingConvRef.current = null;
       setOptimisticMessages([]);
@@ -116,18 +129,22 @@ export function ChatPane({
 
     socket.on('chat.user_message', onUserMessage);
     socket.on('chat.start', onStart);
+    socket.on('chat.rag_searching', onRagSearching);
     socket.on('chat.delta', onDelta);
     socket.on('chat.done', onDone);
     socket.on('chat.error', onError);
     socket.on('conversation.updated', onConvUpdated);
+    socket.on('memory.added', onMemoryAdded);
 
     return () => {
       socket.off('chat.user_message', onUserMessage);
       socket.off('chat.start', onStart);
+      socket.off('chat.rag_searching', onRagSearching);
       socket.off('chat.delta', onDelta);
       socket.off('chat.done', onDone);
       socket.off('chat.error', onError);
       socket.off('conversation.updated', onConvUpdated);
+      socket.off('memory.added', onMemoryAdded);
     };
   }, [utils, onMissingKey]);
 
@@ -234,7 +251,11 @@ export function ChatPane({
                       style={{ animationDelay: '0.3s' }}
                     />
                   </span>
-                  <span>{getModel(modelId)?.label} está pensando…</span>
+                  <span>
+                    {ragSearching
+                      ? 'Consultando knowledge base ENTUR…'
+                      : `${getModel(modelId)?.label} está pensando…`}
+                  </span>
                 </div>
               )}
             </>

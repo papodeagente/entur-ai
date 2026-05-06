@@ -18,7 +18,9 @@ export function Shell({ user }: { user: UserShape }) {
   const [collapsed, setCollapsed] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [modelId, setModelId] = useState<string>(DEFAULT_MODEL_ID);
-  const [settingsOpen, setSettingsOpen] = useState<'profile' | 'keys' | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState<
+    'profile' | 'keys' | 'memories' | 'kb' | null
+  >(null);
 
   const utils = trpc.useUtils();
   const createConv = trpc.conversations.create.useMutation({
@@ -100,12 +102,26 @@ export function Shell({ user }: { user: UserShape }) {
 
         <div className="border-t border-border-subtle p-3 space-y-1">
           {!collapsed && (
-            <button
-              onClick={() => setSettingsOpen('keys')}
-              className="w-full text-left px-2 py-1.5 rounded-md text-xs text-text-secondary hover:bg-bg-elevated transition-colors"
-            >
-              🔑 Chaves de IA
-            </button>
+            <>
+              <button
+                onClick={() => setSettingsOpen('memories')}
+                className="w-full text-left px-2 py-1.5 rounded-md text-xs text-text-secondary hover:bg-bg-elevated transition-colors"
+              >
+                Memórias
+              </button>
+              <button
+                onClick={() => setSettingsOpen('kb')}
+                className="w-full text-left px-2 py-1.5 rounded-md text-xs text-text-secondary hover:bg-bg-elevated transition-colors"
+              >
+                Knowledge Base
+              </button>
+              <button
+                onClick={() => setSettingsOpen('keys')}
+                className="w-full text-left px-2 py-1.5 rounded-md text-xs text-text-secondary hover:bg-bg-elevated transition-colors"
+              >
+                Chaves de IA
+              </button>
+            </>
           )}
           <button
             onClick={() => signOut()}
@@ -151,7 +167,7 @@ export function Shell({ user }: { user: UserShape }) {
 
       <SettingsDialog
         open={settingsOpen !== null}
-        tab={settingsOpen || 'keys'}
+        tab={settingsOpen || 'memories'}
         onTabChange={(t) => setSettingsOpen(t)}
         onClose={() => setSettingsOpen(null)}
       />
