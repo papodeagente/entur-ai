@@ -61,6 +61,7 @@ interface Props {
   onMissingKey: () => void;
   userName: string;
   onOpenPalette: () => void;
+  onOpenMobileSidebar: () => void;
 }
 
 export const ChatPane = forwardRef<ChatPaneHandle, Props>(function ChatPane(
@@ -73,6 +74,7 @@ export const ChatPane = forwardRef<ChatPaneHandle, Props>(function ChatPane(
     onMissingKey,
     userName,
     onOpenPalette,
+    onOpenMobileSidebar,
   },
   forwardedRef
 ) {
@@ -265,7 +267,16 @@ export const ChatPane = forwardRef<ChatPaneHandle, Props>(function ChatPane(
 
   return (
     <main className="flex-1 flex flex-col min-w-0">
-      <header className="h-14 flex items-center justify-between px-6 border-b border-border-subtle gap-3">
+      <header className="h-14 flex items-center px-3 md:px-6 border-b border-border-subtle gap-2 md:gap-3 shrink-0">
+        <button
+          onClick={onOpenMobileSidebar}
+          className="md:hidden text-text-tertiary hover:text-text-primary p-2 -ml-1 rounded transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+          aria-label="Abrir navegação"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M3 6h18M3 12h18M3 18h18" />
+          </svg>
+        </button>
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <h1 className="text-sm font-medium text-text-primary tracking-tightish truncate">
             {conv?.title || 'Nova conversa'}
@@ -283,7 +294,7 @@ export const ChatPane = forwardRef<ChatPaneHandle, Props>(function ChatPane(
       </header>
 
       <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-clean">
-        <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
+        <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 space-y-4 sm:space-y-6">
           {showWelcome ? (
             <Welcome userName={userName} onPick={(p) => send(p, [], { webSearch: false, codeExec: false, thinking: false })} />
           ) : (
@@ -342,8 +353,8 @@ export const ChatPane = forwardRef<ChatPaneHandle, Props>(function ChatPane(
         </div>
       </div>
 
-      <div className="border-t border-border-subtle bg-bg-base">
-        <div className="max-w-3xl mx-auto px-6 py-4">
+      <div className="border-t border-border-subtle bg-bg-base shrink-0">
+        <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-6 py-3 sm:py-4">
           <Composer ref={composerRef} onSend={send} disabled={isStreaming} modelId={modelId} />
         </div>
       </div>

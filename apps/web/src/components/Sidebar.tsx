@@ -59,7 +59,7 @@ export function Sidebar({ activeId, onSelect }: Props) {
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Buscar conversas…"
           className={cn(
-            'w-full text-sm bg-bg-elevated border border-border-subtle rounded-md px-3 py-1.5',
+            'w-full text-base sm:text-sm bg-bg-elevated border border-border-subtle rounded-md px-3 py-2 sm:py-1.5',
             'outline-none focus:border-accent-teal/50 transition-colors duration-150'
           )}
         />

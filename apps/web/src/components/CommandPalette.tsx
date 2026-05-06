@@ -192,7 +192,7 @@ export function CommandPalette({
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 z-[60] flex items-start justify-center pt-[15vh] px-4 animate-fade-in"
+      className="fixed inset-0 bg-black/60 z-[60] flex items-start justify-center pt-[10vh] sm:pt-[15vh] px-3 sm:px-4 animate-fade-in"
       onClick={onClose}
     >
       <div
@@ -221,7 +221,7 @@ export function CommandPalette({
               }
             }}
             placeholder="Buscar comandos, prompts, conversas, modelos…"
-            className="flex-1 bg-transparent outline-none py-3 text-sm placeholder:text-text-tertiary"
+            className="flex-1 bg-transparent outline-none py-3 text-base sm:text-sm placeholder:text-text-tertiary"
           />
           <kbd className="text-[10px] font-mono text-text-tertiary border border-border-subtle rounded px-1.5 py-0.5">
             esc

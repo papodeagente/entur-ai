@@ -30,12 +30,12 @@ export function Welcome({ userName, onPick }: { userName: string; onPick: (p: st
   const firstName = userName.includes('@') ? userName.split('@')[0] : userName.split(' ')[0];
 
   return (
-    <div className="flex flex-col items-center justify-center pt-20 animate-slide-in-up">
-      <img src="/logo.png" alt="Entur" className="h-10 w-auto mb-8" />
-      <h2 className="text-2xl font-semibold tracking-tighter2 mb-2">
+    <div className="flex flex-col items-center justify-center pt-10 sm:pt-20 px-2 animate-slide-in-up">
+      <img src="/logo.png" alt="Entur" className="h-8 sm:h-10 w-auto mb-6 sm:mb-8" />
+      <h2 className="text-xl sm:text-2xl font-semibold tracking-tighter2 mb-2 text-center">
         {greeting}, {firstName}
       </h2>
-      <p className="text-sm text-text-tertiary mb-10">Como posso ajudar hoje?</p>
+      <p className="text-sm text-text-tertiary mb-6 sm:mb-10 text-center">Como posso ajudar hoje?</p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-2xl">
         {SUGGESTIONS.map((s, i) => (

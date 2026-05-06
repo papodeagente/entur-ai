@@ -33,11 +33,11 @@ export function AdminPanel({ open, onClose }: Props) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-fade-in"
+      className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-0 sm:p-4 animate-fade-in"
       onClick={onClose}
     >
       <div
-        className="bg-bg-surface border border-border-subtle rounded-xl shadow-elevated w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col animate-slide-in-up"
+        className="bg-bg-surface border-0 sm:border sm:border-border-subtle sm:rounded-xl shadow-elevated w-full sm:max-w-5xl h-[100dvh] sm:max-h-[92vh] sm:h-auto overflow-hidden flex flex-col animate-slide-in-up"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
@@ -142,8 +142,8 @@ export function AdminPanel({ open, onClose }: Props) {
                 ) : (
                   <div className="space-y-1.5">
                     {stats.byModel.slice(0, 8).map((m) => (
-                      <div key={m.model + m.provider} className="flex items-center gap-3">
-                        <div className="w-44 shrink-0 text-xs">
+                      <div key={m.model + m.provider} className="flex items-center gap-2 sm:gap-3">
+                        <div className="w-32 sm:w-44 shrink-0 text-xs">
                           <div className="font-medium truncate">{m.model}</div>
                           <div className="text-text-tertiary text-[10px]">{m.provider}</div>
                         </div>
@@ -153,10 +153,10 @@ export function AdminPanel({ open, onClose }: Props) {
                             style={{ width: `${(m.requests / maxByModel) * 100}%` }}
                           />
                         </div>
-                        <div className="w-20 shrink-0 text-xs text-right tabular-nums">
+                        <div className="w-12 sm:w-20 shrink-0 text-xs text-right tabular-nums">
                           {formatNumber(m.requests)}
                         </div>
-                        <div className="w-20 shrink-0 text-xs text-right tabular-nums text-accent-amber">
+                        <div className="w-16 sm:w-20 shrink-0 text-xs text-right tabular-nums text-accent-amber">
                           {formatCents(m.cost_cents)}
                         </div>
                       </div>

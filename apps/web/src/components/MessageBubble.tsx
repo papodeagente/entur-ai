@@ -81,9 +81,14 @@ export function MessageBubble({ message, streaming, liveImages, liveTools, liveT
         isUser ? 'justify-end' : 'justify-start'
       )}
     >
-      <div className={cn('flex flex-col max-w-[85%]', isUser ? 'items-end' : 'items-start w-full')}>
+      <div
+        className={cn(
+          'flex flex-col',
+          isUser ? 'items-end max-w-[92%] sm:max-w-[85%]' : 'items-start w-full'
+        )}
+      >
         {!isUser && model && (
-          <div className="text-xs text-text-tertiary mb-1.5 ml-11">{model.label}</div>
+          <div className="text-xs text-text-tertiary mb-1.5 ml-9 sm:ml-9 sm:ml-11">{model.label}</div>
         )}
 
         {isUser && attachments && attachments.length > 0 && (
@@ -95,7 +100,7 @@ export function MessageBubble({ message, streaming, liveImages, liveTools, liveT
         )}
 
         {!isUser && tools && tools.length > 0 && (
-          <div className="mb-2 ml-11 flex flex-wrap gap-1">
+          <div className="mb-2 ml-9 sm:ml-11 flex flex-wrap gap-1">
             {tools.map((t, i) => (
               <span
                 key={i}
@@ -108,7 +113,7 @@ export function MessageBubble({ message, streaming, liveImages, liveTools, liveT
         )}
 
         {!isUser && thinking && (
-          <div className="mb-3 ml-11">
+          <div className="mb-3 ml-9 sm:ml-11">
             <button
               onClick={() => setShowThinking((v) => !v)}
               className="text-xs text-text-tertiary hover:text-text-secondary flex items-center gap-1"
@@ -150,7 +155,7 @@ export function MessageBubble({ message, streaming, liveImages, liveTools, liveT
         </div>
 
         {!isUser && images && images.length > 0 && (
-          <div className="ml-11 mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">
+          <div className="ml-9 sm:ml-11 mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">
             {images.map((img, i) => (
               <a
                 key={i}
@@ -170,7 +175,7 @@ export function MessageBubble({ message, streaming, liveImages, liveTools, liveT
         )}
 
         {!isUser && citations && citations.length > 0 && (
-          <div className="ml-11 mt-3 border-t border-border-subtle pt-3 w-full max-w-2xl">
+          <div className="ml-9 sm:ml-11 mt-3 border-t border-border-subtle pt-3 w-full max-w-2xl">
             <div className="text-xs text-text-tertiary uppercase tracking-wider mb-2">
               Fontes consultadas
             </div>
@@ -207,7 +212,7 @@ export function MessageBubble({ message, streaming, liveImages, liveTools, liveT
           <div
             className={cn(
               'opacity-0 group-hover:opacity-100 transition-opacity duration-150 mt-1',
-              isUser ? '' : 'ml-11'
+              isUser ? '' : 'ml-9 sm:ml-11'
             )}
           >
             <button

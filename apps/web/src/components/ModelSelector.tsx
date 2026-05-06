@@ -57,17 +57,18 @@ export function ModelSelector({ value, onChange }: Props) {
       <button
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'flex items-center gap-2 px-3 py-1.5 rounded-md',
-          'bg-bg-surface border border-border-subtle hover:bg-bg-elevated',
-          'text-sm font-medium transition-colors duration-150'
+          'flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-md',
+          'bg-bg-surface border border-border-subtle hover:bg-bg-elevated active:bg-border-subtle',
+          'text-xs sm:text-sm font-medium transition-colors duration-150 min-h-[36px] max-w-[180px] sm:max-w-none'
         )}
+        aria-label="Selecionar modelo"
       >
-        {current && <span className={cn('w-2 h-2 rounded-full', PROVIDER_DOT[current.provider])} />}
-        <span>{current?.label || 'Selecionar modelo'}</span>
+        {current && <span className={cn('w-2 h-2 rounded-full shrink-0', PROVIDER_DOT[current.provider])} />}
+        <span className="truncate">{current?.label || 'Modelo'}</span>
         {current?.kind === 'image' && (
-          <span className="text-[10px] uppercase tracking-wider text-text-tertiary">img</span>
+          <span className="text-[10px] uppercase tracking-wider text-text-tertiary hidden sm:inline">img</span>
         )}
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0">
           <path d="M6 9l6 6 6-6" />
         </svg>
       </button>
@@ -75,7 +76,7 @@ export function ModelSelector({ value, onChange }: Props) {
       {open && (
         <div
           className={cn(
-            'absolute right-0 top-full mt-1.5 w-80 max-h-[60vh] overflow-y-auto z-50',
+            'absolute right-0 top-full mt-1.5 w-[min(20rem,calc(100vw-1rem))] max-h-[70vh] overflow-y-auto z-50',
             'bg-bg-surface border border-border-subtle rounded-lg shadow-elevated',
             'animate-slide-in-up scrollbar-clean'
           )}

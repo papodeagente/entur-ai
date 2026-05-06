@@ -44,11 +44,11 @@ export function PromptVariablesDialog({ promptId, onClose, onUse }: Props) {
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 z-[55] flex items-center justify-center p-4 animate-fade-in"
+      className="fixed inset-0 bg-black/60 z-[55] flex items-center justify-center p-0 sm:p-4 animate-fade-in"
       onClick={onClose}
     >
       <div
-        className="bg-bg-surface border border-border-subtle rounded-xl shadow-elevated w-full max-w-3xl max-h-[88vh] overflow-hidden flex flex-col animate-slide-in-up"
+        className="bg-bg-surface border-0 sm:border sm:border-border-subtle sm:rounded-xl shadow-elevated w-full sm:max-w-3xl h-[100dvh] sm:max-h-[88vh] sm:h-auto overflow-hidden flex flex-col animate-slide-in-up"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">

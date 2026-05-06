@@ -73,13 +73,13 @@ export function OnboardingDialog({ open, onComplete }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 bg-bg-base z-[70] flex items-center justify-center p-4 animate-fade-in">
-      <div className="w-full max-w-2xl">
-        <div className="flex justify-center mb-8">
-          <img src="/logo.png" alt="Entur" className="h-10 w-auto" />
+    <div className="fixed inset-0 bg-bg-base z-[70] flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
+      <div className="w-full max-w-2xl my-8">
+        <div className="flex justify-center mb-6 sm:mb-8">
+          <img src="/logo.png" alt="Entur" className="h-8 sm:h-10 w-auto" />
         </div>
 
-        <div className="bg-bg-surface border border-border-subtle rounded-xl shadow-elevated p-8 animate-slide-in-up">
+        <div className="bg-bg-surface border border-border-subtle rounded-xl shadow-elevated p-5 sm:p-8 animate-slide-in-up">
           <div className="flex gap-1 mb-8">
             {[0, 1, 2, 3].map((i) => (
               <div
@@ -125,10 +125,10 @@ export function OnboardingDialog({ open, onComplete }: Props) {
                     key={d.id}
                     onClick={() => setDepartment(d.id)}
                     className={cn(
-                      'px-3 py-2 rounded-md border text-sm transition-colors duration-150',
+                      'px-3 py-2.5 rounded-md border text-sm transition-colors duration-150 min-h-[44px]',
                       department === d.id
                         ? 'bg-accent-teal/15 border-accent-teal/50 text-accent-teal-hi'
-                        : 'bg-bg-base border-border-subtle hover:bg-bg-elevated'
+                        : 'bg-bg-base border-border-subtle hover:bg-bg-elevated active:bg-border-subtle'
                     )}
                   >
                     {d.label}
