@@ -71,11 +71,16 @@ CREATE TABLE IF NOT EXISTS "account" (
   "access_token" TEXT,
   "refresh_token" TEXT,
   "id_token" TEXT,
-  "expires_at" TIMESTAMPTZ,
+  "access_token_expires_at" TIMESTAMPTZ,
+  "refresh_token_expires_at" TIMESTAMPTZ,
   "scope" VARCHAR(500),
+  "password" TEXT,
   "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE "account" ADD COLUMN IF NOT EXISTS "access_token_expires_at" TIMESTAMPTZ;
+ALTER TABLE "account" ADD COLUMN IF NOT EXISTS "refresh_token_expires_at" TIMESTAMPTZ;
+ALTER TABLE "account" ADD COLUMN IF NOT EXISTS "password" TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS "uk_account_provider" ON "account"("provider_id","account_id");
 CREATE INDEX IF NOT EXISTS "idx_account_user" ON "account"("user_id");
 
