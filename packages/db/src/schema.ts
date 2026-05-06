@@ -235,6 +235,8 @@ export const message = pgTable(
     thinking: text('thinking'),
     toolCalls: jsonb('tool_calls'),
     citations: jsonb('citations'),
+    attachments: jsonb('attachments'),
+    outputs: jsonb('outputs'),
     parentMessageId: uuid('parent_message_id').references((): any => message.id, {
       onDelete: 'set null',
     }),

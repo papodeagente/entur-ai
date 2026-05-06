@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { MODELS, getModel, type Provider } from '@entur-ai/ai';
+import { MODELS, getModel, type Provider, type Capability } from '@entur-ai/ai';
 import { cn } from '@/lib/cn';
 
 interface Props {
@@ -19,6 +19,18 @@ const PROVIDER_DOT: Record<Provider, string> = {
   gemini: 'bg-blue-500',
 };
 
+const CAP_LABEL: Record<Capability, string> = {
+  text: '',
+  vision: '👁️',
+  pdf: '📄',
+  'image-gen': '🎨',
+  'image-edit': '✏️',
+  'web-search': '🔎',
+  'code-exec': '🐍',
+  thinking: '💭',
+  reasoning: '🧠',
+};
+
 export function ModelSelector({ value, onChange }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -32,12 +44,13 @@ export function ModelSelector({ value, onChange }: Props) {
     return () => document.removeEventListener('mousedown', onClick);
   }, []);
 
-  const grouped: Record<Provider, typeof MODELS> = {
-    openai: [],
-    anthropic: [],
-    gemini: [],
-  };
-  for (const m of MODELS) grouped[m.provider].push(m);
+  const sections = [
+    { key: 'openai-chat', title: 'OpenAI · Texto', list: MODELS.filter((m) => m.provider === 'openai' && m.kind === 'chat') },
+    { key: 'openai-image', title: 'OpenAI · Imagem', list: MODELS.filter((m) => m.provider === 'openai' && m.kind === 'image') },
+    { key: 'anthropic-chat', title: 'Anthropic', list: MODELS.filter((m) => m.provider === 'anthropic') },
+    { key: 'gemini-chat', title: 'Google · Texto', list: MODELS.filter((m) => m.provider === 'gemini' && m.kind === 'chat') },
+    { key: 'gemini-image', title: 'Google · Imagem', list: MODELS.filter((m) => m.provider === 'gemini' && m.kind === 'image') },
+  ].filter((s) => s.list.length > 0);
 
   return (
     <div ref={ref} className="relative">
@@ -51,6 +64,9 @@ export function ModelSelector({ value, onChange }: Props) {
       >
         {current && <span className={cn('w-2 h-2 rounded-full', PROVIDER_DOT[current.provider])} />}
         <span>{current?.label || 'Selecionar modelo'}</span>
+        {current?.kind === 'image' && (
+          <span className="text-[10px] uppercase tracking-wider text-text-tertiary">img</span>
+        )}
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M6 9l6 6 6-6" />
         </svg>
@@ -59,17 +75,17 @@ export function ModelSelector({ value, onChange }: Props) {
       {open && (
         <div
           className={cn(
-            'absolute right-0 top-full mt-1.5 w-72 z-50',
-            'bg-bg-surface border border-border-subtle rounded-lg shadow-elevated overflow-hidden',
-            'animate-slide-in-up'
+            'absolute right-0 top-full mt-1.5 w-80 max-h-[60vh] overflow-y-auto z-50',
+            'bg-bg-surface border border-border-subtle rounded-lg shadow-elevated',
+            'animate-slide-in-up scrollbar-clean'
           )}
         >
-          {(Object.keys(grouped) as Provider[]).map((p) => (
-            <div key={p}>
+          {sections.map((sec) => (
+            <div key={sec.key}>
               <div className="px-3 pt-2 pb-1 text-xs uppercase tracking-wider text-text-tertiary">
-                {PROVIDER_LABEL[p]}
+                {sec.title}
               </div>
-              {grouped[p].map((m) => (
+              {sec.list.map((m) => (
                 <button
                   key={m.id}
                   onClick={() => {
@@ -84,6 +100,11 @@ export function ModelSelector({ value, onChange }: Props) {
                   <div className="flex items-center gap-2">
                     <span className={cn('w-2 h-2 rounded-full', PROVIDER_DOT[m.provider])} />
                     <span className="text-sm font-medium">{m.label}</span>
+                    {m.requiresBilling && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-accent-amber/15 text-accent-amber border border-accent-amber/30">
+                        $ billing
+                      </span>
+                    )}
                     {m.id === value && (
                       <svg
                         width="14"
@@ -99,6 +120,17 @@ export function ModelSelector({ value, onChange }: Props) {
                     )}
                   </div>
                   <div className="text-xs text-text-tertiary ml-4 mt-0.5">{m.description}</div>
+                  <div className="ml-4 mt-1 flex flex-wrap gap-1">
+                    {m.capabilities.map((c) => (
+                      <span
+                        key={c}
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-bg-elevated text-text-tertiary border border-border-subtle"
+                        title={c}
+                      >
+                        {CAP_LABEL[c]} {c}
+                      </span>
+                    ))}
+                  </div>
                 </button>
               ))}
             </div>

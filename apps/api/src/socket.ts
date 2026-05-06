@@ -3,7 +3,16 @@ import type { Server as HttpServer } from 'node:http';
 import { auth } from './auth';
 import { db, schema } from '@entur-ai/db';
 import { and, asc, desc, eq } from 'drizzle-orm';
-import { streamChat, getModel, humanizeProviderError, type ChatMessage } from '@entur-ai/ai';
+import {
+  streamChat,
+  generateImage,
+  getModel,
+  isImageModel,
+  humanizeProviderError,
+  type Attachment,
+  type ChatMessage,
+  type ToolFlags,
+} from '@entur-ai/ai';
 import { retrieve } from '@entur-ai/rag';
 import { getApiKey } from './services/settings';
 import { generateTitle, extractMemories } from './services/aiTasks';
@@ -33,6 +42,7 @@ export function attachSocket(httpServer: HttpServer, _appUrl: string): SocketSer
     cors: { origin: true, credentials: true },
     path: '/socket.io',
     transports: ['websocket', 'polling'],
+    maxHttpBufferSize: 25 * 1024 * 1024, // 25MB para anexos
   });
 
   io.use(async (socket, next) => {
@@ -57,13 +67,16 @@ export function attachSocket(httpServer: HttpServer, _appUrl: string): SocketSer
       if (typeof ack !== 'function') ack = () => {};
       const startedAt = Date.now();
       try {
-        const { conversationId, content, modelId } = payload as {
+        const { conversationId, content, modelId, attachments, tools } = payload as {
           conversationId: string;
           content: string;
           modelId: string;
+          attachments?: Attachment[];
+          tools?: ToolFlags;
         };
         if (!socket.user) return ack({ ok: false, error: 'UNAUTHORIZED' });
-        if (!conversationId || !content?.trim() || !modelId)
+        const hasContent = !!content?.trim() || (attachments?.length ?? 0) > 0;
+        if (!conversationId || !hasContent || !modelId)
           return ack({ ok: false, error: 'invalid_payload' });
         const model = getModel(modelId);
         if (!model) return ack({ ok: false, error: 'invalid_model' });
@@ -87,19 +100,12 @@ export function attachSocket(httpServer: HttpServer, _appUrl: string): SocketSer
           return ack({
             ok: false,
             error: 'missing_api_key',
-            message: `Chave ${model.provider.toUpperCase()} não cadastrada. Vá em Configurações > Chaves de IA.`,
+            message: `Chave ${model.provider.toUpperCase()} não cadastrada.`,
           });
         }
-        const openaiKey = await getApiKey('openai'); // p/ embeddings + tasks
+        const openaiKey = await getApiKey('openai');
 
-        // Histórico
-        const previous = await db
-          .select({ role: schema.message.role, content: schema.message.content })
-          .from(schema.message)
-          .where(eq(schema.message.conversationId, conv.id))
-          .orderBy(asc(schema.message.createdAt));
-
-        // Persistir user message
+        // Persistir user message com attachments
         const [userMsg] = await db
           .insert(schema.message)
           .values({
@@ -107,11 +113,37 @@ export function attachSocket(httpServer: HttpServer, _appUrl: string): SocketSer
             tenantId: TENANT_ID,
             role: 'user',
             content,
+            attachments: attachments?.length ? (attachments as any) : null,
           })
           .returning();
         socket.emit('chat.user_message', { conversationId: conv.id, message: userMsg });
 
-        const isFirstExchange = previous.length === 0;
+        const previous = await db
+          .select({
+            role: schema.message.role,
+            content: schema.message.content,
+            attachments: schema.message.attachments,
+          })
+          .from(schema.message)
+          .where(
+            and(eq(schema.message.conversationId, conv.id), eq(schema.message.role, 'user'))
+          )
+          .orderBy(asc(schema.message.createdAt));
+
+        // ressetimar histórico anterior + assistant
+        const fullHistory = await db
+          .select({
+            role: schema.message.role,
+            content: schema.message.content,
+            attachments: schema.message.attachments,
+          })
+          .from(schema.message)
+          .where(eq(schema.message.conversationId, conv.id))
+          .orderBy(asc(schema.message.createdAt));
+        // remove last (que acabamos de inserir) — vamos enviar ele separadamente
+        const previousFull = fullHistory.slice(0, -1);
+
+        const isFirstExchange = previousFull.length === 0;
         await db
           .update(schema.conversation)
           .set({ model: modelId, updatedAt: new Date() })
@@ -120,9 +152,76 @@ export function attachSocket(httpServer: HttpServer, _appUrl: string): SocketSer
         ack({ ok: true });
         socket.emit('chat.start', { conversationId: conv.id, modelId });
 
-        // ====== RAG: retrieval ======
+        // ============ IMAGE GENERATION ============
+        if (isImageModel(modelId)) {
+          socket.emit('chat.tool_start', { conversationId: conv.id, tool: 'image_generation' });
+          try {
+            const firstImage = attachments?.find((a) => a.kind === 'image');
+            const imgResult = await generateImage({
+              modelId,
+              prompt: content,
+              apiKey,
+              imageBase64: firstImage?.data,
+              imageMime: firstImage?.mimeType,
+            });
+            socket.emit('chat.image', {
+              conversationId: conv.id,
+              mimeType: imgResult.mimeType,
+              b64: imgResult.b64,
+            });
+
+            const [assistantMsg] = await db
+              .insert(schema.message)
+              .values({
+                conversationId: conv.id,
+                tenantId: TENANT_ID,
+                role: 'assistant',
+                content: '',
+                model: modelId,
+                provider: model.provider,
+                outputs: { images: [imgResult] } as any,
+              })
+              .returning();
+
+            socket.emit('chat.done', { conversationId: conv.id, message: assistantMsg });
+            await db.insert(schema.usageLog).values({
+              tenantId: TENANT_ID,
+              userId: socket.user.id,
+              conversationId: conv.id,
+              messageId: assistantMsg.id,
+              provider: model.provider,
+              model: modelId,
+              latencyMs: Date.now() - startedAt,
+            });
+
+            // auto-titulo
+            if (openaiKey && isFirstExchange && conv.title === 'Nova conversa' && content.trim()) {
+              generateTitle({
+                apiKey: openaiKey,
+                userMessage: content,
+                assistantReply: '(imagem gerada)',
+              })
+                .then(async (newTitle) => {
+                  if (newTitle) {
+                    await db
+                      .update(schema.conversation)
+                      .set({ title: newTitle })
+                      .where(eq(schema.conversation.id, conv.id));
+                    socket.emit('conversation.updated', { id: conv.id, title: newTitle });
+                  }
+                })
+                .catch(() => {});
+            }
+          } catch (err) {
+            const friendly = humanizeProviderError(err, model.provider, modelId);
+            socket.emit('chat.error', { conversationId: conv.id, message: friendly });
+          }
+          return;
+        }
+
+        // ============ RAG (chat models só) ============
         let kbChunks: Array<{ chunkId: string; documentId: string; documentTitle: string; content: string }> = [];
-        if (openaiKey) {
+        if (openaiKey && content.trim()) {
           try {
             socket.emit('chat.rag_searching', { conversationId: conv.id });
             const matches = await retrieve({
@@ -139,12 +238,10 @@ export function attachSocket(httpServer: HttpServer, _appUrl: string): SocketSer
               content: m.content,
             }));
           } catch (err) {
-            // RAG é melhor-esforço; não bloqueia o chat
-            console.warn('RAG retrieve falhou:', err instanceof Error ? err.message : err);
+            console.warn('RAG falhou:', err instanceof Error ? err.message : err);
           }
         }
 
-        // ====== Memórias do usuário ======
         const memoryRows = await db
           .select({ content: schema.userMemory.content, category: schema.userMemory.category })
           .from(schema.userMemory)
@@ -157,39 +254,71 @@ export function attachSocket(httpServer: HttpServer, _appUrl: string): SocketSer
           .orderBy(desc(schema.userMemory.updatedAt))
           .limit(50);
 
-        // ====== Construir system prompt enriquecido ======
         const sysParts: string[] = [BASE_SYSTEM_PROMPT];
         if (memoryRows.length > 0) {
           sysParts.push(
-            '## Memórias sobre o usuário (use para personalizar, mas não force referências)',
-            memoryRows.map((m, i) => `${i + 1}. ${m.content}${m.category ? ` (${m.category})` : ''}`).join('\n')
+            '## Memórias sobre o usuário (use para personalizar, não force referências)',
+            memoryRows
+              .map((m, i) => `${i + 1}. ${m.content}${m.category ? ` (${m.category})` : ''}`)
+              .join('\n')
           );
         }
         if (kbChunks.length > 0) {
           sysParts.push(
-            '## Conhecimento institucional ENTUR (use SOMENTE se for útil; sempre que usar, cite a fonte com [Fonte: <título>])',
-            kbChunks
-              .map((c, i) => `### Fonte ${i + 1}: ${c.documentTitle}\n${c.content}`)
-              .join('\n\n')
+            '## Conhecimento institucional ENTUR (use SOMENTE se útil; cite com [Fonte: <título>])',
+            kbChunks.map((c, i) => `### Fonte ${i + 1}: ${c.documentTitle}\n${c.content}`).join('\n\n')
           );
         }
         const systemPrompt = sysParts.join('\n\n');
 
-        // ====== Stream ======
         const messages: ChatMessage[] = [
           { role: 'system', content: systemPrompt },
-          ...previous.map((m) => ({
+          ...previousFull.map((m: any) => ({
             role: m.role as 'user' | 'assistant',
             content: m.content,
+            attachments: m.attachments || undefined,
           })),
-          { role: 'user', content },
+          { role: 'user', content, attachments: attachments },
         ];
 
         let assistantText = '';
+        let assistantThinking = '';
+        const collectedImages: { mimeType: string; b64: string }[] = [];
+        const collectedCitations: { url: string; title?: string }[] = [];
+        const collectedTools: { tool: string; output?: string }[] = [];
+
         try {
-          for await (const delta of streamChat({ modelId, messages, apiKey })) {
-            assistantText += delta;
-            socket.emit('chat.delta', { conversationId: conv.id, text: delta });
+          for await (const evt of streamChat({ modelId, messages, apiKey, tools })) {
+            if (evt.type === 'delta') {
+              assistantText += evt.text;
+              socket.emit('chat.delta', { conversationId: conv.id, text: evt.text });
+            } else if (evt.type === 'thinking') {
+              assistantThinking += evt.text;
+              socket.emit('chat.thinking', { conversationId: conv.id, text: evt.text });
+            } else if (evt.type === 'image') {
+              collectedImages.push({ mimeType: evt.mimeType, b64: evt.b64 });
+              socket.emit('chat.image', {
+                conversationId: conv.id,
+                mimeType: evt.mimeType,
+                b64: evt.b64,
+              });
+            } else if (evt.type === 'citation') {
+              collectedCitations.push({ url: evt.url, title: evt.title });
+              socket.emit('chat.citation', {
+                conversationId: conv.id,
+                url: evt.url,
+                title: evt.title,
+              });
+            } else if (evt.type === 'tool_start') {
+              collectedTools.push({ tool: evt.tool });
+              socket.emit('chat.tool_start', { conversationId: conv.id, tool: evt.tool });
+            } else if (evt.type === 'tool_result') {
+              socket.emit('chat.tool_result', {
+                conversationId: conv.id,
+                tool: evt.tool,
+                output: evt.output,
+              });
+            }
           }
         } catch (err) {
           const friendly = humanizeProviderError(err, model.provider, modelId);
@@ -206,15 +335,20 @@ export function attachSocket(httpServer: HttpServer, _appUrl: string): SocketSer
           return;
         }
 
-        // ====== Persistir assistant message + citations ======
-        const citations =
-          kbChunks.length > 0
-            ? kbChunks.map((c) => ({
-                documentId: c.documentId,
-                documentTitle: c.documentTitle,
-                snippet: c.content.slice(0, 220),
-              }))
-            : null;
+        // citations: web (collectedCitations) + RAG (kbChunks)
+        const allCitations: any[] = [
+          ...kbChunks.map((c) => ({
+            kind: 'kb',
+            documentId: c.documentId,
+            documentTitle: c.documentTitle,
+            snippet: c.content.slice(0, 220),
+          })),
+          ...collectedCitations.map((c) => ({
+            kind: 'web',
+            url: c.url,
+            documentTitle: c.title || c.url,
+          })),
+        ];
 
         const [assistantMsg] = await db
           .insert(schema.message)
@@ -225,14 +359,17 @@ export function attachSocket(httpServer: HttpServer, _appUrl: string): SocketSer
             content: assistantText,
             model: modelId,
             provider: model.provider,
-            citations: citations as any,
+            thinking: assistantThinking || null,
+            citations: allCitations.length > 0 ? (allCitations as any) : null,
+            outputs: collectedImages.length > 0 ? ({ images: collectedImages } as any) : null,
+            toolCalls: collectedTools.length > 0 ? (collectedTools as any) : null,
           })
           .returning();
 
         socket.emit('chat.done', {
           conversationId: conv.id,
           message: assistantMsg,
-          citations,
+          citations: allCitations,
         });
 
         await db.insert(schema.usageLog).values({
@@ -245,14 +382,13 @@ export function attachSocket(httpServer: HttpServer, _appUrl: string): SocketSer
           latencyMs: Date.now() - startedAt,
         });
 
-        // ====== Background: auto-título + extração de memórias ======
+        // Background: titulo + memorias
         if (openaiKey) {
-          // Auto-título na primeira troca
           if (isFirstExchange && conv.title === 'Nova conversa') {
             generateTitle({
               apiKey: openaiKey,
               userMessage: content,
-              assistantReply: assistantText,
+              assistantReply: assistantText || '(resposta sem texto)',
             })
               .then(async (newTitle) => {
                 if (newTitle) {
@@ -260,17 +396,11 @@ export function attachSocket(httpServer: HttpServer, _appUrl: string): SocketSer
                     .update(schema.conversation)
                     .set({ title: newTitle })
                     .where(eq(schema.conversation.id, conv.id));
-                  socket.emit('conversation.updated', {
-                    id: conv.id,
-                    title: newTitle,
-                    model: modelId,
-                  });
+                  socket.emit('conversation.updated', { id: conv.id, title: newTitle });
                 }
               })
               .catch(() => {});
           }
-
-          // Extração de memórias
           const userId = socket.user.id;
           extractMemories({
             apiKey: openaiKey,
@@ -279,7 +409,6 @@ export function attachSocket(httpServer: HttpServer, _appUrl: string): SocketSer
             existingMemories: memoryRows.map((m) => m.content),
           })
             .then(async (extracted) => {
-              if (extracted.length === 0) return;
               for (const m of extracted) {
                 const [created] = await db
                   .insert(schema.userMemory)
