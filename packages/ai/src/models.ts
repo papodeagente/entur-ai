@@ -7,7 +7,7 @@ export interface ModelDef {
   kind: ModelKind;
   description: string;
   capabilities: Capability[];
-  imageEndpoint?: 'openai-images' | 'gemini-imagen';
+  imageEndpoint?: 'openai-images' | 'gemini-imagen' | 'gemini-flash-image';
   requiresBilling?: boolean;
   default?: boolean;
 }
@@ -162,11 +162,40 @@ export const MODELS: ModelDef[] = [
     requiresBilling: true,
   },
   {
-    id: 'imagen-3.0-generate-002',
-    label: 'Imagen 3',
+    id: 'gemini-2.5-flash-image-preview',
+    label: 'Gemini 2.5 Flash Image',
     provider: 'gemini',
     kind: 'image',
-    description: 'Google fotorrealismo — exige billing',
+    description: 'Geração de imagem do Gemini — funciona em tiers padrão',
+    capabilities: ['image-gen', 'image-edit'],
+    imageEndpoint: 'gemini-flash-image',
+  },
+  {
+    id: 'imagen-4.0-generate-001',
+    label: 'Imagen 4',
+    provider: 'gemini',
+    kind: 'image',
+    description: 'Google Imagen 4 — fotorrealismo de ponta (exige billing)',
+    capabilities: ['image-gen'],
+    imageEndpoint: 'gemini-imagen',
+    requiresBilling: true,
+  },
+  {
+    id: 'imagen-4.0-fast-generate-001',
+    label: 'Imagen 4 Fast',
+    provider: 'gemini',
+    kind: 'image',
+    description: 'Imagen 4 mais rápido e barato (exige billing)',
+    capabilities: ['image-gen'],
+    imageEndpoint: 'gemini-imagen',
+    requiresBilling: true,
+  },
+  {
+    id: 'imagen-4.0-ultra-generate-001',
+    label: 'Imagen 4 Ultra',
+    provider: 'gemini',
+    kind: 'image',
+    description: 'Imagen 4 Ultra — qualidade máxima (exige billing)',
     capabilities: ['image-gen'],
     imageEndpoint: 'gemini-imagen',
     requiresBilling: true,

@@ -40,7 +40,10 @@ export const CHAT_PRICING: Record<string, ChatPricing> = {
 export const IMAGE_PRICING: Record<string, ImagePricing> = {
   'gpt-image-1': { perImage: 0.19 }, // quality high
   'dall-e-3': { perImage: 0.08 }, // hd 1024
-  'imagen-3.0-generate-002': { perImage: 0.03 },
+  'imagen-4.0-generate-001': { perImage: 0.04 },
+  'imagen-4.0-fast-generate-001': { perImage: 0.02 },
+  'imagen-4.0-ultra-generate-001': { perImage: 0.06 },
+  'gemini-2.5-flash-image-preview': { perImage: 0.039 },
 };
 
 /** Estimativa simples de tokens: ~4 chars/token. */

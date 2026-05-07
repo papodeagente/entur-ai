@@ -1,6 +1,6 @@
 import { streamOpenAI, generateOpenAIImage } from './providers/openai';
 import { streamAnthropic } from './providers/anthropic';
-import { streamGemini, generateImagen } from './providers/gemini';
+import { streamGemini, generateImagen, generateGeminiFlashImage } from './providers/gemini';
 import { getModel, isImageModel } from './models';
 import type { ChatMessage, Provider, StreamArgs, StreamEvent, ToolFlags } from './types';
 
@@ -33,7 +33,10 @@ export async function generateImage(args: {
     return generateOpenAIImage(args);
   }
   if (m.imageEndpoint === 'gemini-imagen') {
-    return generateImagen({ prompt: args.prompt, apiKey: args.apiKey });
+    return generateImagen({ modelId: args.modelId, prompt: args.prompt, apiKey: args.apiKey });
+  }
+  if (m.imageEndpoint === 'gemini-flash-image') {
+    return generateGeminiFlashImage(args);
   }
   throw new Error(`Modelo ${args.modelId} não suporta geração de imagem`);
 }

@@ -1,5 +1,7 @@
 export type Provider = 'openai' | 'anthropic' | 'gemini';
 
+export type ImageEndpoint = 'openai-images' | 'gemini-imagen' | 'gemini-flash-image';
+
 export type Capability =
   | 'text'
   | 'vision'
