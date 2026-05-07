@@ -228,7 +228,7 @@ export function CommandPalette({
           </kbd>
         </div>
 
-        <div className="max-h-[50vh] overflow-y-auto scrollbar-clean">
+        <div className="max-h-[50vh] overflow-y-auto scrollbar-clean overscroll-contain">
           {flat.length === 0 ? (
             <div className="text-center py-10 text-sm text-text-tertiary">
               Nada encontrado para "{query}"

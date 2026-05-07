@@ -4,6 +4,7 @@ import rehypeHighlight from 'rehype-highlight';
 import { useState } from 'react';
 import { cn } from '@/lib/cn';
 import { getModel } from '@entur-ai/ai';
+import { CodeBlock, TableWrapper } from './CodeBlock';
 
 interface Citation {
   kind?: 'kb' | 'web';
@@ -147,7 +148,14 @@ export function MessageBubble({ message, streaming, liveImages, liveTools, liveT
             {isUser ? (
               <div style={{ whiteSpace: 'pre-wrap' }}>{message.content}</div>
             ) : (
-              <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeHighlight]}
+                components={{
+                  pre: CodeBlock as any,
+                  table: TableWrapper as any,
+                }}
+              >
                 {message.content || ''}
               </ReactMarkdown>
             )}

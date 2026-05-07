@@ -37,7 +37,7 @@ export function AdminPanel({ open, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="bg-bg-surface border-0 sm:border sm:border-border-subtle sm:rounded-xl shadow-elevated w-full sm:max-w-5xl h-[100dvh] sm:max-h-[92vh] sm:h-auto overflow-hidden flex flex-col animate-slide-in-up"
+        className="bg-bg-surface border-0 sm:border sm:border-border-subtle sm:rounded-xl shadow-elevated w-full sm:max-w-5xl xl:max-w-6xl h-[100dvh] sm:max-h-[92vh] sm:h-auto overflow-hidden flex flex-col animate-slide-in-up"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle">
@@ -68,7 +68,7 @@ export function AdminPanel({ open, onClose }: Props) {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto scrollbar-clean p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto scrollbar-clean overscroll-contain p-6 space-y-6">
           {!isAuthorized && (
             <div className="text-sm bg-accent-amber/10 border border-accent-amber/30 text-accent-amber rounded-lg p-4">
               Acesso restrito à Diretoria/Admin. Sua função atual é{' '}

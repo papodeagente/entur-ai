@@ -55,7 +55,7 @@ export function SettingsDialog({ open, tab, onTabChange, onClose }: Props) {
           </TabBtn>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-6">
           {tab === 'memories' && <MemoriesTab />}
           {tab === 'keys' && <KeysTab />}
           {tab === 'kb' && <KbTab />}

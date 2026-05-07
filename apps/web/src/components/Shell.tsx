@@ -258,7 +258,7 @@ export function Shell({ user }: { user: UserShape }) {
           'shrink-0 bg-bg-surface border-r border-border-subtle flex-col h-full',
           'transition-[width] duration-200 ease-out-expo',
           'hidden md:flex',
-          collapsed ? 'w-16' : 'w-[280px]'
+          collapsed ? 'w-16' : 'w-[280px] lg:w-[300px]'
         )}
         aria-label="Navegação lateral"
       >

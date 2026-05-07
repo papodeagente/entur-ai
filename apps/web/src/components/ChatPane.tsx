@@ -8,6 +8,7 @@ import {
 } from 'react';
 import { trpc } from '@/lib/trpc';
 import { getSocket } from '@/lib/socket';
+import { cn } from '@/lib/cn';
 import { MessageBubble } from './MessageBubble';
 import { Composer, type ComposerHandle, type PendingAttachment, type ToolFlags } from './Composer';
 import { ModelSelector } from './ModelSelector';
@@ -97,8 +98,25 @@ export const ChatPane = forwardRef<ChatPaneHandle, Props>(function ChatPane(
   const [isStreaming, setIsStreaming] = useState(false);
   const [ragSearching, setRagSearching] = useState(false);
   const [optimisticUserMsg, setOptimisticUserMsg] = useState<Message | null>(null);
+  const [stickToBottom, setStickToBottom] = useState(true);
+  const [showScrollDown, setShowScrollDown] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const streamingConvRef = useRef<string | null>(null);
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior });
+  }, []);
+
+  const onScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const distFromBottom = el.scrollHeight - el.clientHeight - el.scrollTop;
+    const atBottom = distFromBottom < 80;
+    setStickToBottom(atBottom);
+    setShowScrollDown(!atBottom && distFromBottom > 240);
+  }, []);
 
   useEffect(() => {
     if (conv?.model) setModelId(conv.model);
@@ -112,7 +130,10 @@ export const ChatPane = forwardRef<ChatPaneHandle, Props>(function ChatPane(
     setStreamingCitations([]);
     setStreamingTools([]);
     setIsStreaming(false);
-  }, [activeId]);
+    setStickToBottom(true);
+    // ao trocar de conversa, snap pro fim sem animação
+    setTimeout(() => scrollToBottom('auto'), 0);
+  }, [activeId, scrollToBottom]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -220,11 +241,15 @@ export const ChatPane = forwardRef<ChatPaneHandle, Props>(function ChatPane(
   }, [utils, onMissingKey]);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({
-      top: scrollRef.current.scrollHeight,
-      behavior: 'smooth',
-    });
-  }, [conv?.messages?.length, streamingText, streamingImages.length, optimisticUserMsg]);
+    if (stickToBottom) scrollToBottom('smooth');
+  }, [
+    conv?.messages?.length,
+    streamingText,
+    streamingImages.length,
+    optimisticUserMsg,
+    stickToBottom,
+    scrollToBottom,
+  ]);
 
   const send = useCallback(
     async (text: string, attachments: PendingAttachment[], tools: ToolFlags) => {
@@ -293,8 +318,12 @@ export const ChatPane = forwardRef<ChatPaneHandle, Props>(function ChatPane(
         <ModelSelector value={modelId} onChange={setModelId} />
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto scrollbar-clean">
-        <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 space-y-4 sm:space-y-6">
+      <div
+        ref={scrollRef}
+        onScroll={onScroll}
+        className="flex-1 overflow-y-auto scrollbar-clean overscroll-contain relative"
+      >
+        <div className="max-w-3xl xl:max-w-4xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 space-y-4 sm:space-y-6">
           {showWelcome ? (
             <Welcome userName={userName} onPick={(p) => send(p, [], { webSearch: false, codeExec: false, thinking: false })} />
           ) : (
@@ -353,8 +382,33 @@ export const ChatPane = forwardRef<ChatPaneHandle, Props>(function ChatPane(
         </div>
       </div>
 
-      <div className="border-t border-border-subtle bg-bg-base shrink-0">
-        <div className="max-w-3xl mx-auto px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+      <div className="border-t border-border-subtle bg-bg-base shrink-0 relative">
+        {/* Botão "voltar ao fim" flutuante */}
+        {showScrollDown && (
+          <button
+            onClick={() => {
+              setStickToBottom(true);
+              scrollToBottom('smooth');
+            }}
+            className={cn(
+              'absolute -top-12 left-1/2 -translate-x-1/2 z-10',
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-full',
+              'bg-bg-elevated border border-border-strong text-text-secondary',
+              'hover:bg-bg-surface hover:text-text-primary',
+              'shadow-elevated text-xs font-medium',
+              'transition-all duration-200 ease-out-expo',
+              'animate-fade-in'
+            )}
+            aria-label="Ir para a última mensagem"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+              <path d="M19 14l-7 7-7-7M19 5l-7 7-7-7" />
+            </svg>
+            Ir para o fim
+          </button>
+        )}
+
+        <div className="max-w-3xl xl:max-w-4xl mx-auto px-3 sm:px-4 md:px-6 py-3 sm:py-4">
           <Composer ref={composerRef} onSend={send} disabled={isStreaming} modelId={modelId} />
         </div>
       </div>
