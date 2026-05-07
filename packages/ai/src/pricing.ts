@@ -14,9 +14,14 @@ interface ImagePricing {
 }
 
 export const CHAT_PRICING: Record<string, ChatPricing> = {
-  // OpenAI
+  // OpenAI - Chat
+  'gpt-5': { input: 8, output: 24 },
+  'gpt-5-mini': { input: 0.5, output: 1.5 },
+  'gpt-4.1': { input: 3, output: 12 },
   'gpt-4o': { input: 5, output: 20 },
   'gpt-4o-mini': { input: 0.6, output: 2.4 },
+  // OpenAI - Reasoning
+  'o3-pro': { input: 30, output: 120 },
   o3: { input: 20, output: 80 },
   'o4-mini': { input: 1.1, output: 4.4 },
 

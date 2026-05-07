@@ -7,7 +7,12 @@ export async function* streamOpenAI({
   apiKey,
 }: StreamArgs): AsyncGenerator<StreamEvent> {
   const client = new OpenAI({ apiKey });
-  const isReasoning = modelId.startsWith('o3') || modelId.startsWith('o4');
+  // GPT-5 + o3/o4 family aceitam reasoning_effort
+  const isReasoning =
+    modelId.startsWith('o3') ||
+    modelId.startsWith('o4') ||
+    modelId === 'gpt-5' ||
+    modelId === 'gpt-5-mini';
 
   const oaiMessages = messages.map((m) => {
     if (!m.attachments?.length || m.role !== 'user') {

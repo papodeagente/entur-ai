@@ -15,13 +15,37 @@ export interface ModelDef {
 export const MODELS: ModelDef[] = [
   // ===== OpenAI · Chat =====
   {
+    id: 'gpt-5',
+    label: 'GPT-5',
+    provider: 'openai',
+    kind: 'chat',
+    description: 'OpenAI flagship 2025 — multimodal + raciocínio nativo',
+    capabilities: ['text', 'vision', 'pdf', 'reasoning'],
+    default: true,
+  },
+  {
+    id: 'gpt-5-mini',
+    label: 'GPT-5 mini',
+    provider: 'openai',
+    kind: 'chat',
+    description: 'GPT-5 mini — rápido, capaz, custo baixo',
+    capabilities: ['text', 'vision', 'pdf', 'reasoning'],
+  },
+  {
+    id: 'gpt-4.1',
+    label: 'GPT-4.1',
+    provider: 'openai',
+    kind: 'chat',
+    description: 'Long-context (1M tokens), excelente em código',
+    capabilities: ['text', 'vision', 'pdf'],
+  },
+  {
     id: 'gpt-4o',
     label: 'GPT-4o',
     provider: 'openai',
     kind: 'chat',
-    description: 'OpenAI flagship multimodal — vision + texto',
+    description: 'Multimodal estável e barato',
     capabilities: ['text', 'vision', 'pdf'],
-    default: true,
   },
   {
     id: 'gpt-4o-mini',
@@ -32,11 +56,20 @@ export const MODELS: ModelDef[] = [
     capabilities: ['text', 'vision'],
   },
   {
+    id: 'o3-pro',
+    label: 'o3 Pro (reasoning premium)',
+    provider: 'openai',
+    kind: 'chat',
+    description: 'Reasoning máximo da OpenAI — pensa muito antes de responder',
+    capabilities: ['text', 'vision', 'reasoning'],
+    requiresBilling: true,
+  },
+  {
     id: 'o3',
     label: 'o3 (reasoning)',
     provider: 'openai',
     kind: 'chat',
-    description: 'Reasoning de ponta',
+    description: 'Reasoning forte, equilíbrio com custo',
     capabilities: ['text', 'vision', 'reasoning'],
   },
   {
@@ -140,7 +173,7 @@ export const MODELS: ModelDef[] = [
   },
 ];
 
-export const DEFAULT_MODEL_ID = 'gpt-4o';
+export const DEFAULT_MODEL_ID = 'gpt-5';
 
 export function getModel(id: string): ModelDef | undefined {
   return MODELS.find((m) => m.id === id);
