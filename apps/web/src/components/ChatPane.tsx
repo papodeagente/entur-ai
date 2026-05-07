@@ -291,7 +291,7 @@ export const ChatPane = forwardRef<ChatPaneHandle, Props>(function ChatPane(
   const isImage = isImageModel(modelId);
 
   return (
-    <main className="flex-1 flex flex-col min-w-0">
+    <main className="flex-1 flex flex-col min-w-0 min-h-0 h-full">
       <header className="h-14 flex items-center px-3 md:px-6 border-b border-border-subtle gap-2 md:gap-3 shrink-0">
         <button
           onClick={onOpenMobileSidebar}

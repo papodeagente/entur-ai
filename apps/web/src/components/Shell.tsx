@@ -287,7 +287,7 @@ export function Shell({ user }: { user: UserShape }) {
         </aside>
       </div>
 
-      <div id="chat-main" className="flex-1 flex flex-col min-w-0">
+      <div id="chat-main" className="flex-1 flex flex-col min-w-0 min-h-0">
         <ChatPane
           ref={chatRef}
           activeId={activeId}
